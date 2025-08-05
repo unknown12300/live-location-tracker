@@ -4,8 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Share Your Location</title>
-  <!-- Fix: Remove trailing spaces from the src URL -->
-  <script src="https://cdn.jsdelivr.net/npm/keep-screen-on@1.0.1/dist/index.umd.js"></script>
   <link rel="stylesheet" href="style.css" />
   <style>
     body {
@@ -83,10 +81,12 @@
     <button id="startBtn" class="btn btn-start" onclick="startSharing()">🟢 Start Sharing</button>
     <button id="stopBtn" class="btn btn-stop" onclick="stopSharing()" disabled>🔴 Stop Sharing</button>
 
+    <p id="status">Status: Ready</p>
+
     <div class="info-box" id="locationInfo" style="display:none;">
       <b>ID:</b> <span id="eid"></span><br/>
       <b>Location:</b> <span id="coords">Waiting...</span><br/>
-      <b>City:</b> <span id="city">-</span><br/>
+      <b>City:</b> <span id="city">Fetching...</span><br/>
       <b>Updated:</b> <span id="time">-</span>
     </div>
   </div>
@@ -95,88 +95,79 @@
     let watchId = null;
     let isSharing = false;
 
-    // Restore saved ID and resume if needed
-    const savedId = localStorage.getItem('employeeId');
-    if (savedId) {
-      document.getElementById('employeeId').value = savedId;
-    }
-
-    // Auto-resume if was sharing
-    if (localStorage.getItem('isSharing') === 'true' && savedId) {
-      updateStatus("🔁 Resuming location sharing...");
-      // Add slight delay to allow page to load fully
-      setTimeout(startSharing, 500);
-    }
-
+    // Update status message
     function updateStatus(text) {
       document.getElementById('status').innerHTML = text;
     }
 
-    function updateInfo(id, lat, lng, city, timestamp) {
+    // Update location info box
+    function updateInfo(id, lat, lng, city) {
       document.getElementById('eid').textContent = id;
       document.getElementById('coords').textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-      document.getElementById('city').textContent = city || "Unknown";
-      document.getElementById('time').textContent = timestamp || new Date().toLocaleTimeString();
+      document.getElementById('city').textContent = city || "Fetching...";
+      document.getElementById('time').textContent = new Date().toLocaleTimeString();
       document.getElementById('locationInfo').style.display = 'block';
     }
 
-    // Send location and receive city from server
-    async function sendLocation(id, lat, lng) {
-      try {
-        const res = await fetch('/update-location', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, latitude: lat, longitude: lng })
-        });
-
-        // Check if the response is OK (status 200-299)
-        if (!res.ok) {
-             const errorText = await res.text(); // Get error details if possible
-             console.error(`❌ Send failed: ${res.status} ${res.statusText}`, errorText);
-             updateStatus(`❌ Send failed: ${res.status} ${res.statusText}`);
-             // Stop sharing on persistent server errors?
-             // if (res.status >= 500) stopSharing();
-             return; // Stop processing if not OK
+    // Reverse geocode: Get city name from lat/lng
+    function getCityName(lat, lng, callback) {
+      fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=14`, {
+        headers: {
+          'User-Agent': 'EmployeeTracker/1.0' // Required by Nominatim
         }
-
-        const data = await res.json();
-
-        if (data.success) {
-          const city = data.city || "Unknown";
-          updateInfo(id, lat, lng, city);
-          updateStatus(`🟢 Sharing: ${city}`);
-        } else {
-            console.warn("Server reported failure:", data.message);
-            updateStatus(`⚠️ Server warning: ${data.message}`);
+      })
+      .then(res => res.json())
+      .then(data => {
+        let city = "Unknown Location";
+        if (data.address) {
+          city = [
+            data.address.city,
+            data.address.town,
+            data.address.village,
+            data.address.hamlet,
+            data.address.suburb,
+            data.address.state
+          ].find(Boolean) || "Near " + (data.address.state || "India");
         }
-      } catch (err) {
-        console.error("❌ Network error during send:", err);
-        updateStatus("❌ Network error. Check connection.");
-        // Optionally stop sharing on network errors?
-        // stopSharing();
-      }
+        callback(city);
+      })
+      .catch(err => {
+        console.warn("Geocoding failed:", err);
+        callback("City lookup failed");
+      });
     }
 
+    // Send location to server
+    function sendLocation(id, lat, lng) {
+      fetch('/update-location', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: id,
+          name: "Unknown",
+          email: "unknown@company.com",
+          latitude: lat,
+          longitude: lng
+        })
+      })
+      .catch(err => console.error("❌ Send failed:", err));
+    }
+
+    // ✅ Corrected: Single async function with ID validation + city
     async function startSharing() {
       const id = document.getElementById('employeeId').value.trim();
-
+      
       if (!id) {
         alert("⚠️ Please enter your Employee ID");
         return;
       }
 
-      // Save ID for resume
-      localStorage.setItem('employeeId', id);
-
-      // Verify ID
+      // Verify ID first
       updateStatus("🔍 Verifying your ID...");
       let exists = false;
       try {
         const res = await fetch(`/employee-exists/${encodeURIComponent(id)}`);
-        if (!res.ok) {
-            const errorText = await res.text();
-            throw new Error(`HTTP ${res.status}: ${errorText}`);
-        }
+        if (!res.ok) throw new Error("Not found");
         const data = await res.json();
         exists = data.exists;
       } catch (err) {
@@ -199,58 +190,45 @@
       document.getElementById('startBtn').disabled = true;
       document.getElementById('stopBtn').disabled = false;
       isSharing = true;
-      localStorage.setItem('isSharing', 'true'); // Mark as active
       updateStatus("🔍 Finding your location...");
 
-      // Keep screen on
-      if (typeof KeepScreenOn !== 'undefined') {
-        KeepScreenOn.enable().catch(err => {
-            console.warn("Could not enable KeepScreenOn:", err);
-            updateStatus(prev => prev + " (Screen may dim)");
-        });
-      } else {
-          console.warn("KeepScreenOn library not loaded.");
-          updateStatus(prev => prev + " (Screen may dim)");
-      }
-
       // Watch position
-      // Clear any existing watch first
-      if (watchId !== null) {
-        navigator.geolocation.clearWatch(watchId);
-      }
       watchId = navigator.geolocation.watchPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
-          // Send immediately on first fix
-          sendLocation(id, latitude, longitude);
+
+          // Get city name
+          getCityName(latitude, longitude, (city) => {
+            updateStatus(`🟢 Sharing location: ${city}`);
+            updateInfo(id, latitude, longitude, city);
+            sendLocation(id, latitude, longitude);
+          });
         },
         (err) => {
           console.error("Geolocation error:", err);
-          updateStatus(`❌ Error: ${err.message} (${err.code})`);
-          // Don't stop sharing automatically on a single error, maybe retry?
-          // stopSharing();
+          updateStatus(`❌ Error: ${err.message}`);
+          stopSharing();
         },
         {
           enableHighAccuracy: true,
-          timeout: 15000, // Increase timeout slightly
-          maximumAge: 5000 // Allow slightly stale cache
+          timeout: 10000,
+          maximumAge: 0
         }
       );
     }
 
+    // Stop sharing
     function stopSharing() {
       if (watchId !== null) {
         navigator.geolocation.clearWatch(watchId);
         watchId = null;
       }
       isSharing = false;
-      localStorage.setItem('isSharing', 'false');
 
       // Update UI
       document.getElementById('startBtn').disabled = false;
       document.getElementById('stopBtn').disabled = true;
       updateStatus("🛑 Location sharing stopped.");
-      document.getElementById('locationInfo').style.display = 'none'; // Hide info box
 
       // Notify server
       const id = document.getElementById('employeeId').value.trim();
@@ -259,32 +237,19 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id })
-        }).then(res => {
-             if (!res.ok) {
-                 console.warn("Failed to notify server of stop-sharing:", res.status);
-             }
-        }).catch(err => {
-             console.warn("Error notifying server of stop-sharing:", err);
-        });
+        }).catch(() => {});
       }
     }
 
-    // Network status
-    window.addEventListener('offline', () => {
-      updateStatus(prev => prev + " 📶 Connection lost.");
-    });
-
-    window.addEventListener('online', () => {
-      updateStatus(prev => prev.replace(" 📶 Connection lost.", "") + " ✅ Connection restored.");
-    });
-
-    // Warn before closing while sharing
-    window.addEventListener('beforeunload', (e) => {
+    // Optional: Send stop signal when closing tab
+    window.addEventListener('beforeunload', () => {
       if (isSharing) {
-        e.preventDefault();
-        e.returnValue = ''; // Triggers browser confirmation
-        // Modern browsers might ignore custom messages, but.returnValue is standard
-        return ''; // Fallback
+        const id = document.getElementById('employeeId').value.trim();
+        if (id) {
+          navigator.sendBeacon && navigator.sendBeacon('/stop-sharing', new Blob([
+            JSON.stringify({ id })
+          ], { type: 'application/json' }));
+        }
       }
     });
   </script>
