@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Share Your Location</title>
+  <!-- Move KeepScreenOn to head -->
+  <script src="https://cdn.jsdelivr.net/npm/keep-screen-on@1.0.1/dist/index.umd.js"></script>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+    }
+    .container {
+      max-width: 400px;
+      margin: 40px auto;
+      padding: 20px;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    input {
+      padding: 12px;
+      width: 100%;
+      margin: 10px 0;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+    .btn {
+      padding: 12px 20px;
+      margin: 8px 5px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: bold;
+    }
+    .btn-start {
+      background: #28a745;
+      color: white;
+    }
+    .btn-stop {
+      background: #d9534f;
+      color: white;
+    }
+    .btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    #status {
+      margin-top: 15px;
+      font-size: 14px;
+      font-weight: 500;
+      min-height: 20px;
+    }
+    .info-box {
+      margin-top: 15px;
+      padding: 12px;
+      background: #f8f9fa;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      font-size: 14px;
+      color: #333;
+      text-align: left;
+    }
+    .info-box b {
+      display: inline-block;
+      width: 90px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>📍 Share Your Location</h2>
+    <p>Enter your Employee ID to start sharing.</p>
+
+    <input type="text" id="employeeId" placeholder="Enter Employee ID" required />
+
+    <button id="startBtn" class="btn btn-start" onclick="startSharing()">🟢 Start Sharing</button>
+    <button id="stopBtn" class="btn btn-stop" onclick="stopSharing()" disabled>🔴 Stop Sharing</button>
+
+    <div class="info-box" id="locationInfo" style="display:none;">
+      <b>ID:</b> <span id="eid"></span><br/>
+      <b>Location:</b> <span id="coords">Waiting...</span><br/>
+      <b>City:</b> <span id="city">-</span><br/>
+      <b>Updated:</b> <span id="time">-</span>
+    </div>
+  </div>
+
+  <script>
+    let watchId = null;
+    let isSharing = false;
+
+    // Restore saved ID and resume if needed
+    const savedId = localStorage.getItem('employeeId');
+    if (savedId) {
+      document.getElementById('employeeId').value = savedId;
+    }
+
+    // Auto-resume if was sharing
+    if (localStorage.getItem('isSharing') === 'true' && savedId) {
+      updateStatus("🔁 Resuming location sharing...");
+      startSharing();
+    }
+
+    function updateStatus(text) {
+      document.getElementById('status').innerHTML = text;
+    }
+
+    function updateInfo(id, lat, lng, city, timestamp) {
+      document.getElementById('eid').textContent = id;
+      document.getElementById('coords').textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+      document.getElementById('city').textContent = city || "Unknown";
+      document.getElementById('time').textContent = timestamp || new Date().toLocaleTimeString();
+      document.getElementById('locationInfo').style.display = 'block';
+    }
+
+    // Send location and receive city from server
+    async function sendLocation(id, lat, lng) {
+      try {
+        const res = await fetch('/update-location', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, latitude: lat, longitude: lng })
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+          const city = data.city || "Unknown";
+          updateInfo(id, lat, lng, city);
+          updateStatus(`🟢 Sharing: ${city}`);
+        }
+      } catch (err) {
+        console.error("❌ Send failed:", err);
+      }
+    }
+
+    async function startSharing() {
+      const id = document.getElementById('employeeId').value.trim();
+      
+      if (!id) {
+        alert("⚠️ Please enter your Employee ID");
+        return;
+      }
+
+      // Save ID for resume
+      localStorage.setItem('employeeId', id);
+
+      // Verify ID
+      updateStatus("🔍 Verifying your ID...");
+      let exists = false;
+      try {
+        const res = await fetch(`/employee-exists/${encodeURIComponent(id)}`);
+        if (!res.ok) throw new Error("Not found");
+        const data = await res.json();
+        exists = data.exists;
+      } catch (err) {
+        console.error("ID verification failed:", err);
+        updateStatus("❌ Failed to verify ID. Check internet or contact admin.");
+        return;
+      }
+
+      if (!exists) {
+        updateStatus(`<span style="color: #d9534f;">❌ Employee ID <b>${id}</b> not found. Contact your manager.</span>`);
+        return;
+      }
+
+      if (!navigator.geolocation) {
+        updateStatus("❌ Browser doesn't support GPS.");
+        return;
+      }
+
+      // Update UI
+      document.getElementById('startBtn').disabled = true;
+      document.getElementById('stopBtn').disabled = false;
+      isSharing = true;
+      localStorage.setItem('isSharing', 'true'); // Mark as active
+      updateStatus("🔍 Finding your location...");
+
+      // Keep screen on
+      if (typeof KeepScreenOn !== 'undefined') {
+        KeepScreenOn.enable().catch(console.warn);
+      }
+
+      // Watch position
+      watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          sendLocation(id, latitude, longitude);
+        },
+        (err) => {
+          console.error("Geolocation error:", err);
+          updateStatus(`❌ Error: ${err.message}`);
+          stopSharing();
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
+      );
+    }
+
+    function stopSharing() {
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+      isSharing = false;
+      localStorage.setItem('isSharing', 'false');
+
+      // Update UI
+      document.getElementById('startBtn').disabled = false;
+      document.getElementById('stopBtn').disabled = true;
+      updateStatus("🛑 Location sharing stopped.");
+
+      // Notify server
+      const id = document.getElementById('employeeId').value.trim();
+      if (id) {
+        fetch('/stop-sharing', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id })
+        }).catch(() => {});
+      }
+    }
+
+    // Network status
+    window.addEventListener('offline', () => {
+      updateStatus("📶 Connection lost. Retrying...");
+    });
+
+    window.addEventListener('online', () => {
+      updateStatus("✅ Connection restored.");
+    });
+
+    // Warn before closing while sharing
+    window.addEventListener('beforeunload', (e) => {
+      if (isSharing) {
+        e.preventDefault();
+        e.returnValue = ''; // Triggers browser confirmation
+      }
+    });
+  </script>
+</body>
+</html>
+

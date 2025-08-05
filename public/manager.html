@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Manager Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    #map {
+      height: 500px;
+      width: 100%;
+      margin-top: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .employee-list {
+      margin-top: 20px;
+      text-align: left;
+    }
+    .map-toggle {
+      margin-top: 10px;
+      font-size: 14px;
+    }
+    .map-toggle button {
+      padding: 6px 12px;
+      margin: 0 5px;
+      background: #007cba;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .map-toggle button.active {
+      background: #005a87;
+      font-weight: bold;
+    }
+    .status-online {
+      color: #28a745;
+      font-weight: bold;
+    }
+    .leaflet-container .id-marker {
+      font: bold 12px sans-serif;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Manager Dashboard</h2>
+
+    <h3>Create Employee</h3>
+    <input type="text" id="empId" placeholder="Employee ID" required>
+    <input type="text" id="empName" placeholder="Name" required>
+    <input type="email" id="empEmail" placeholder="Email" required>
+    <button onclick="createEmployee()">Create</button>
+
+    <div id="map"></div>
+
+    <!-- Map View Toggle -->
+    <div class="map-toggle">
+      <button id="roadmap-btn" class="active" onclick="setRoadmap()">🗺️ Road Map</button>
+      <button id="satellite-btn" onclick="setSatellite()">🛰️ Satellite</button>
+    </div>
+
+    <div class="employee-list" id="employees">
+      <h3>Live Locations (Active Only)</h3>
+      <p><strong>🟢 Active Employees</strong></p>
+      <div id="location-list"></div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // Initialize Map
+    const map = L.map('map').setView([15.3, 76.0], 6);
+
+    // Tile Layers
+    const roadMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      maxZoom: 19,
+      subdomains: 'abcd'
+    });
+
+    const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: '&copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, FAO, NOAA, USGS, © OpenStreetMap contributors',
+      maxZoom: 19
+    });
+
+    roadMap.addTo(map);
+
+    const markers = {};
+
+    // Toggle Map Views
+    function setRoadmap() {
+      if (!map.hasLayer(roadMap)) {
+        satellite.remove();
+        roadMap.addTo(map);
+      }
+      document.getElementById('roadmap-btn').classList.add('active');
+      document.getElementById('satellite-btn').classList.remove('active');
+    }
+
+    function setSatellite() {
+      if (!map.hasLayer(satellite)) {
+        roadMap.remove();
+        satellite.addTo(map);
+      }
+      document.getElementById('satellite-btn').classList.add('active');
+      document.getElementById('roadmap-btn').classList.remove('active');
+    }
+
+    // Generate consistent color based on ID
+    function getColorById(id) {
+      const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#d35400', '#c0392b'];
+      let hash = 0;
+      for (let i = 0; i < id.length; i++) {
+        hash = id.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      return colors[Math.abs(hash) % colors.length];
+    }
+
+    // Create custom icon with ID
+    function createIdIcon(id, color) {
+      return L.divIcon({
+        className: 'id-marker',
+        html: `<span style="
+          background: ${color};
+          color: white;
+          padding: 3px 6px;
+          border-radius: 4px;
+          font: bold 12px sans-serif;
+          text-align: center;
+          box-shadow: 0 0 5px rgba(0,0,0,0.3);
+        ">${id}</span>`,
+        iconSize: [30, 20],
+        iconAnchor: [15, 10]
+      });
+    }
+
+    // Update or create marker with ID badge
+    function updateMarker(emp) {
+      const lat = parseFloat(emp.latitude);
+      const lng = parseFloat(emp.longitude);
+      if (!lat || !lng) return;
+
+      const pos = [lat, lng];
+      const color = getColorById(emp.id);
+
+      if (markers[emp.id]) {
+        markers[emp.id].setLatLng(pos);
+        markers[emp.id].setPopupContent(
+          `<b>ID:</b> ${emp.id}<br><b>Name:</b> ${emp.name}<br><b>City:</b> ${emp.city || 'Unknown'}<br><b>Lat/Lng:</b> ${lat.toFixed(6)}, ${lng.toFixed(6)}`
+        );
+      } else {
+        const marker = L.marker(pos, {
+          icon: createIdIcon(emp.id, color),
+          title: `ID ${emp.id}`
+        }).addTo(map).bindPopup(
+          `<b>ID:</b> ${emp.id}<br><b>Name:</b> ${emp.name}<br><b>City:</b> ${emp.city || 'Unknown'}<br><b>Lat/Lng:</b> ${lat.toFixed(6)}, ${lng.toFixed(6)}`
+        );
+        markers[emp.id] = marker;
+      }
+
+      // Auto-zoom if needed
+      if (!map.getBounds().contains(pos) || map.getZoom() < 13) {
+        map.setView(pos, 14);
+      }
+    }
+
+    // Remove marker if employee goes offline
+    function removeMarker(empId) {
+      if (markers[empId]) {
+        markers[empId].remove();
+        delete markers[empId];
+      }
+    }
+
+    // Create new employee
+    function createEmployee() {
+      const id = document.getElementById('empId').value.trim();
+      const name = document.getElementById('empName').value.trim();
+      const email = document.getElementById('empEmail').value.trim();
+
+      if (!id || !name || !email) {
+        alert("All fields are required");
+        return;
+      }
+
+      fetch('/create-employee', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `id=${encodeURIComponent(id)}&name=${encodeURIComponent(name)}&email=${encodeURIComponent(email)}`
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          alert(`✅ Employee ${id} created!`);
+          document.getElementById('empId').value = '';
+          document.getElementById('empName').value = '';
+          document.getElementById('empEmail').value = '';
+        } else {
+          alert("Error: " + data.message);
+        }
+      })
+      .catch(err => console.error("Create error:", err));
+    }
+
+    // Load and display only active employees
+    function loadEmployees() {
+      fetch('/employees')
+        .then(res => res.json())
+        .then(employees => {
+          const listEl = document.getElementById('location-list');
+          listEl.innerHTML = '';
+
+          // Filter only active (sharing location)
+          const active = employees.filter(emp => emp.latitude && emp.longitude);
+
+          if (active.length === 0) {
+            listEl.innerHTML = '<p>No employees currently sharing location.</p>';
+          }
+
+          active.forEach(emp => {
+            const item = document.createElement('div');
+            item.style.padding = "8px";
+            item.style.borderBottom = "1px solid #eee";
+
+            item.innerHTML = `
+              <span class="status-online">🟢</span>
+              <b>${emp.name}</b> (${emp.id}) | 
+              📍 ${parseFloat(emp.latitude).toFixed(5)}, ${parseFloat(emp.longitude).toFixed(5)} | 
+              🏙️ <span style="color:#004d99">${emp.city || 'Unknown'}</span> |
+              🕒 ${new Date(emp.lastSeen).toLocaleTimeString()}
+            `;
+
+            listEl.appendChild(item);
+            updateMarker(emp); // Update map
+          });
+
+          // Remove markers for employees no longer active
+          Object.keys(markers).forEach(id => {
+            if (!active.some(emp => emp.id === id)) {
+              removeMarker(id);
+            }
+          });
+        })
+        .catch(err => {
+          console.error("Fetch error:", err);
+          document.getElementById('location-list').innerHTML = '<p>❌ Failed to load data.</p>';
+        });
+    }
+
+    // Auto-refresh every 10 seconds
+    setInterval(loadEmployees, 10000);
+    loadEmployees(); // First load
+
+</script>
+</body>
+</html>
+
+
+

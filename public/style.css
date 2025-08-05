@@ -1,0 +1,158 @@
+/* Reset and Base Styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Arial', sans-serif;
+  background: #f4f4f4;
+  color: #333;
+  line-height: 1.6;
+  padding: 20px;
+}
+
+/* Main Container */
+.container {
+  max-width: 1000px;
+  margin: 20px auto;
+  padding: 25px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12);
+  text-align: center;
+}
+
+.container h2 {
+  margin-bottom: 20px;
+  color: #2c3e50;
+  font-size: 28px;
+}
+
+.container h3 {
+  margin: 25px 0 15px;
+  color: #34495e;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+/* Form Inputs */
+input {
+  padding: 12px;
+  margin: 10px;
+  width: calc(30% - 24px);
+  max-width: 220px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border 0.3s ease, box-shadow 0.3s ease;
+}
+
+input:focus {
+  outline: none;
+  border-color: #007cba;
+  box-shadow: 0 0 5px rgba(0, 124, 186, 0.3);
+}
+
+/* Buttons */
+button {
+  padding: 12px 20px;
+  background: #007cba;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  transition: background 0.3s ease;
+  margin: 10px 5px;
+}
+
+button:hover {
+  background: #005a87;
+  transform: translateY(-1px);
+}
+
+/* Map Toggle Buttons */
+.map-toggle button {
+  padding: 8px 16px;
+  font-size: 14px;
+  background: #6c757d;
+}
+
+.map-toggle button.active {
+  background: #007cba;
+  font-weight: bold;
+}
+
+/* Employee List Styling */
+.employee-list {
+  text-align: left;
+  margin-top: 25px;
+  padding: 0 10px;
+}
+
+.employee-list h3 {
+  text-align: left;
+  margin-bottom: 10px;
+  color: #2c3e50;
+}
+
+.employee-list p {
+  color: #555;
+  font-size: 14px;
+  margin-bottom: 15px;
+}
+
+#location-list {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  background: #fdfdfd;
+}
+
+#location-list div {
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+  font-size: 14px;
+}
+
+#location-list div:last-child {
+  border-bottom: none;
+}
+
+/* Status Indicators */
+.status-online {
+  color: #28a745;
+  font-weight: bold;
+}
+
+.status-offline {
+  color: #d9534f;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .container {
+    padding: 15px;
+    margin: 10px;
+  }
+
+  input {
+    width: 100%;
+    margin: 8px 0;
+  }
+
+  button {
+    width: 100%;
+    margin: 5px 0;
+  }
+
+  .map-toggle {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+  }
+}
