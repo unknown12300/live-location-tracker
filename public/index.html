@@ -28,8 +28,11 @@
     // Show error if ?error=1 in URL
     if (window.location.search.includes('error=1')) {
       document.getElementById('error-message').style.display = 'block';
-      // Clean URL
-      history.replaceState(null, '', window.location.pathname);
+      // Clean URL AFTER displaying the message
+      // Use replaceState to avoid adding an extra entry to browser history
+      const url = new URL(window.location);
+      url.searchParams.delete('error');
+      history.replaceState(null, '', url);
     }
   </script>
 </body>
