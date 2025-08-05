@@ -69,6 +69,22 @@
       display: inline-block;
       width: 90px;
     }
+    /* Spinner for loading state */
+    .spinner {
+       border: 2px solid #f3f3f3;
+       border-top: 2px solid #3498db;
+       border-radius: 50%;
+       width: 16px;
+       height: 16px;
+       animation: spin 1s linear infinite;
+       display: inline-block;
+       vertical-align: middle;
+       margin-right: 5px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body>
@@ -94,29 +110,67 @@
   <script>
     let watchId = null;
     let isSharing = false;
+    const EMPLOYEE_ID_KEY = 'employeeId';
+    const IS_SHARING_KEY = 'isSharing';
+    const LAST_LOCATION_KEY = 'lastLocation'; // Store last known location data
 
-    // Update status message
-    function updateStatus(text) {
-      document.getElementById('status').innerHTML = text;
+    // --- Local Storage Helpers ---
+    function saveState() {
+        localStorage.setItem(EMPLOYEE_ID_KEY, document.getElementById('employeeId').value.trim());
+        localStorage.setItem(IS_SHARING_KEY, isSharing.toString());
     }
 
-    // Update location info box
+    function loadState() {
+        const savedId = localStorage.getItem(EMPLOYEE_ID_KEY);
+        const wasSharing = localStorage.getItem(IS_SHARING_KEY) === 'true';
+        const lastLocationData = JSON.parse(localStorage.getItem(LAST_LOCATION_KEY) || '{}');
+        return { savedId, wasSharing, lastLocationData };
+    }
+
+    function clearState() {
+        localStorage.removeItem(EMPLOYEE_ID_KEY);
+        localStorage.removeItem(IS_SHARING_KEY);
+        localStorage.removeItem(LAST_LOCATION_KEY); // Clear last location on stop
+    }
+
+    function saveLastLocation(id, lat, lng, city) {
+        const locationData = {
+            id,
+            lat: parseFloat(lat),
+            lng: parseFloat(lng),
+            city,
+            timestamp: new Date().toISOString()
+        };
+        localStorage.setItem(LAST_LOCATION_KEY, JSON.stringify(locationData));
+    }
+
+    // --- UI Update Functions ---
+    function updateStatus(text, showSpinner = false) {
+      const spinnerHtml = showSpinner ? '<span class="spinner"></span>' : '';
+      document.getElementById('status').innerHTML = spinnerHtml + text;
+    }
+
     function updateInfo(id, lat, lng, city) {
       document.getElementById('eid').textContent = id;
-      document.getElementById('coords').textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+      document.getElementById('coords').textContent = `${parseFloat(lat).toFixed(6)}, ${parseFloat(lng).toFixed(6)}`;
       document.getElementById('city').textContent = city || "Fetching...";
       document.getElementById('time').textContent = new Date().toLocaleTimeString();
       document.getElementById('locationInfo').style.display = 'block';
     }
 
-    // Reverse geocode: Get city name from lat/lng
+    // --- Geocoding ---
     function getCityName(lat, lng, callback) {
       fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=14`, {
         headers: {
-          'User-Agent': 'EmployeeTracker/1.0' // Required by Nominatim
+          'User-Agent': 'EmployeeTracker/1.0'
         }
       })
-      .then(res => res.json())
+      .then(res => {
+         if (!res.ok) {
+             throw new Error(`OSM HTTP error: ${res.status}`);
+         }
+         return res.json();
+      })
       .then(data => {
         let city = "Unknown Location";
         if (data.address) {
@@ -137,37 +191,63 @@
       });
     }
 
-    // Send location to server
+    // --- Server Communication ---
     function sendLocation(id, lat, lng) {
+      // Save to localStorage immediately
+      getCityName(lat, lng, (city) => {
+          saveLastLocation(id, lat, lng, city);
+          // Update UI with the fetched city
+          updateInfo(id, lat, lng, city);
+          updateStatus(`🟢 Sharing location: ${city}`);
+      });
+
       fetch('/update-location', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: id,
-          name: "Unknown",
-          email: "unknown@company.com",
+          // Note: Name/Email are typically retrieved by the server from its records
+          // based on the ID. Sending them from client is less common.
+          // If needed, they would need to be stored locally too.
           latitude: lat,
           longitude: lng
         })
       })
-      .catch(err => console.error("❌ Send failed:", err));
+      .then(res => {
+         if (!res.ok) {
+             console.error("Server update failed:", res.status, res.statusText);
+         }
+      })
+      .catch(err => console.error("❌ Network error sending location:", err));
     }
 
-    // ✅ Corrected: Single async function with ID validation + city
+    function notifyStopSharing(id) {
+      if (id) {
+        fetch('/stop-sharing', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id })
+        }).catch(err => console.warn("Error notifying stop-sharing:", err));
+      }
+    }
+
+    // --- Core Sharing Logic ---
     async function startSharing() {
       const id = document.getElementById('employeeId').value.trim();
-      
+
       if (!id) {
         alert("⚠️ Please enter your Employee ID");
         return;
       }
 
-      // Verify ID first
-      updateStatus("🔍 Verifying your ID...");
+      // Save ID immediately
+      localStorage.setItem(EMPLOYEE_ID_KEY, id);
+
+      updateStatus("🔍 Verifying your ID...", true);
       let exists = false;
       try {
         const res = await fetch(`/employee-exists/${encodeURIComponent(id)}`);
-        if (!res.ok) throw new Error("Not found");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         exists = data.exists;
       } catch (err) {
@@ -186,72 +266,132 @@
         return;
       }
 
-      // Update UI
+      // Update UI for sharing state
       document.getElementById('startBtn').disabled = true;
       document.getElementById('stopBtn').disabled = false;
       isSharing = true;
-      updateStatus("🔍 Finding your location...");
+      saveState(); // Save state immediately upon starting
+      updateStatus("🔍 Finding your location...", true);
 
-      // Watch position
+      // Clear any previous watch
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+
+      // Start watching position
       watchId = navigator.geolocation.watchPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
-
-          // Get city name
-          getCityName(latitude, longitude, (city) => {
-            updateStatus(`🟢 Sharing location: ${city}`);
-            updateInfo(id, latitude, longitude, city);
-            sendLocation(id, latitude, longitude);
-          });
+          sendLocation(id, latitude, longitude);
         },
         (err) => {
           console.error("Geolocation error:", err);
-          updateStatus(`❌ Error: ${err.message}`);
-          stopSharing();
+          updateStatus(`❌ Geolocation Error: ${err.message} (${err.code})`);
+          // Don't automatically stop sharing on a single error, let user decide
+          // stopSharing();
         },
         {
           enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0
+          timeout: 15000, // Increased timeout slightly
+          maximumAge: 5000  // Allow slightly stale cache
         }
       );
     }
 
-    // Stop sharing
     function stopSharing() {
       if (watchId !== null) {
         navigator.geolocation.clearWatch(watchId);
         watchId = null;
       }
+      const id = document.getElementById('employeeId').value.trim();
       isSharing = false;
+      clearState(); // Clear all persistent state
 
       // Update UI
       document.getElementById('startBtn').disabled = false;
       document.getElementById('stopBtn').disabled = true;
       updateStatus("🛑 Location sharing stopped.");
+      document.getElementById('locationInfo').style.display = 'none';
 
       // Notify server
-      const id = document.getElementById('employeeId').value.trim();
-      if (id) {
-        fetch('/stop-sharing', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id })
-        }).catch(() => {});
-      }
+      notifyStopSharing(id);
     }
 
-    // Optional: Send stop signal when closing tab
-    window.addEventListener('beforeunload', () => {
+    // --- Page Load Logic ---
+    window.addEventListener('DOMContentLoaded', () => {
+        const { savedId, wasSharing, lastLocationData } = loadState();
+
+        if (savedId) {
+            document.getElementById('employeeId').value = savedId;
+        }
+
+        // If was sharing, restore last known info and resume
+        if (wasSharing && savedId) {
+            // Restore last known location info if available
+            if (lastLocationData.id === savedId && lastLocationData.lat && lastLocationData.lng) {
+                 updateInfo(
+                     lastLocationData.id,
+                     lastLocationData.lat,
+                     lastLocationData.lng,
+                     lastLocationData.city
+                 );
+                 // Format timestamp for display
+                 const displayTime = lastLocationData.timestamp ?
+                     new Date(lastLocationData.timestamp).toLocaleTimeString() : '-';
+                 document.getElementById('time').textContent = displayTime;
+                 updateStatus(`🔁 Resumed. Last update: ${displayTime}`);
+                 document.getElementById('locationInfo').style.display = 'block';
+            } else {
+                 updateStatus("🔁 Resuming sharing...");
+            }
+            // Attempt to start sharing after a short delay to allow UI to load
+            setTimeout(() => {
+                 startSharing().catch(err => {
+                     console.error("Error auto-starting sharing:", err);
+                     updateStatus("❌ Failed to resume sharing automatically.");
+                 });
+            }, 500); // 500ms delay
+        }
+    });
+
+    // --- Cleanup on Tab Close ---
+    window.addEventListener('beforeunload', (e) => {
+      // Save state one last time
+      saveState();
+      // If sharing, try to notify the server using sendBeacon (more reliable on unload)
       if (isSharing) {
         const id = document.getElementById('employeeId').value.trim();
         if (id) {
-          navigator.sendBeacon && navigator.sendBeacon('/stop-sharing', new Blob([
-            JSON.stringify({ id })
-          ], { type: 'application/json' }));
+          // Get last known lat/lng if available for the beacon
+          const lastLoc = JSON.parse(localStorage.getItem(LAST_LOCATION_KEY) || '{}');
+          const beaconData = {
+            id: id,
+            latitude: lastLoc.lat || null,
+            longitude: lastLoc.lng || null
+            // Add other relevant fields if needed by /stop-sharing
+          };
+          const blob = new Blob([JSON.stringify(beaconData)], { type: 'application/json' });
+          // Use sendBeacon for best effort delivery on unload
+          if (navigator.sendBeacon) {
+             navigator.sendBeacon('/stop-sharing', blob);
+          } else {
+             // Fallback if sendBeacon is not supported (unlikely)
+             // A synchronous XHR was previously used, but is deprecated.
+             // The fetch API is async and might not complete.
+             // sendBeacon is the recommended approach.
+             console.warn("sendBeacon not supported, stop-sharing might not be sent.");
+          }
         }
       }
+      // For the beforeunload dialog, modern browsers often ignore custom messages
+      // but setting returnValue triggers the default dialog.
+      if (isSharing) {
+         e.preventDefault();
+         e.returnValue = ''; // Triggers default browser confirmation dialog
+         return ''; // Fallback
+      }
     });
+
   </script>
 </body>
 </html>
