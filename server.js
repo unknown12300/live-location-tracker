@@ -4,23 +4,36 @@ const fs = require('fs');
 const path = require('path');
 const session = require('express-session');
 const rateLimit = require('express-rate-limit');
+const bcrypt = require('bcrypt'); // <-- ADD THIS
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// --- Paths: Use 'data' folder in project root ---
-const DATA_DIR = path.join(__dirname, 'data');
+// --- Paths: Use PERSISTENT disk on Render ---
+// Use environment variable if set (Render), otherwise default to /var/data
+const DATA_DIR = process.env.DATA_DIR || '/var/data';
 const EMPLOYEES_CSV = path.join(DATA_DIR, 'employees.csv');
 const PASSWORD_FILE = path.join(DATA_DIR, 'password.txt');
 
 // Ensure data directory exists
 if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    console.log(`📁 Created data directory: ${DATA_DIR}`);
+  } catch (err) {
+    console.error(`🔴 Failed to create data directory ${DATA_DIR}:`, err);
+    // Consider handling this error more gracefully or letting the app fail
+  }
 }
 
 // Create empty CSV if not exists
 if (!fs.existsSync(EMPLOYEES_CSV)) {
-  fs.writeFileSync(EMPLOYEES_CSV, 'id,name,email,latitude,longitude,city,lastSeen\n');
+  try {
+    fs.writeFileSync(EMPLOYEES_CSV, 'id,name,email,latitude,longitude,city,lastSeen\n');
+    console.log(`📄 Created initial employees.csv: ${EMPLOYEES_CSV}`);
+  } catch (err) {
+    console.error(`🔴 Failed to create initial employees.csv:`, err);
+  }
 }
 
 // Middleware
@@ -28,9 +41,9 @@ app.use(express.static('public'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Session setup
+// Session setup (Use environment variable for secret in production)
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'your-secure-random-secret-change-in-prod',
+  secret: process.env.SESSION_SECRET || 'your-VERY-SECURE-random-secret-change-in-prod', // <-- CHANGE IN PROD
   resave: false,
   saveUninitialized: false,
   cookie: { maxAge: 24 * 60 * 60 * 1000 } // 24 hours
@@ -66,8 +79,9 @@ async function getCityFromCoordinates(lat, lng) {
   }
 
   try {
+    // Ensure lat/lng are numbers before sending
     const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10`,
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${parseFloat(lat)}&lon=${parseFloat(lng)}&zoom=10`,
       {
         headers: {
           'User-Agent': 'EmployeeTracker/1.0 (contact@yourcompany.com)'
@@ -75,7 +89,10 @@ async function getCityFromCoordinates(lat, lng) {
       }
     );
 
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`OSM HTTP ${response.status}: ${errorText}`);
+    }
 
     const data = await response.json();
     let city = 'Unknown';
@@ -104,9 +121,15 @@ async function getCityFromCoordinates(lat, lng) {
 // Read employees from CSV
 function readEmployees() {
   try {
-    if (!fs.existsSync(EMPLOYEES_CSV)) return [];
+    if (!fs.existsSync(EMPLOYEES_CSV)) {
+      console.warn(`📄 employees.csv not found at ${EMPLOYEES_CSV}`);
+      return [];
+    }
     const data = fs.readFileSync(EMPLOYEES_CSV, 'utf-8');
-    if (!data.trim()) return [];
+    if (!data.trim()) {
+      console.warn(`📄 employees.csv is empty at ${EMPLOYEES_CSV}`);
+      return [];
+    }
 
     return data
       .trim()
@@ -114,7 +137,10 @@ function readEmployees() {
       .slice(1)
       .map(line => {
         const parts = line.split(',');
-        if (parts.length < 7) return null;
+        if (parts.length < 7) {
+          console.warn(`⚠️ Skipping malformed line in CSV: ${line}`);
+          return null;
+        }
 
         const id = parts[0].replace(/^"|"$/g, '').trim();
         const name = parts[1].replace(/^"|"$/g, '').trim() || 'Unknown';
@@ -124,7 +150,10 @@ function readEmployees() {
         const city = parts[5].replace(/^"|"$/g, '').trim() || 'Unknown';
         const lastSeen = parts[6].replace(/^"|"$/g, '').trim() || '';
 
-        if (!id) return null;
+        if (!id) {
+          console.warn(`⚠️ Skipping line with empty ID in CSV: ${line}`);
+          return null;
+        }
 
         return { id, name, email, latitude, longitude, city, lastSeen };
       })
@@ -140,6 +169,7 @@ function writeEmployees(employees) {
   try {
     const lines = ['id,name,email,latitude,longitude,city,lastSeen'];
     employees.forEach(emp => {
+      // Basic escaping for CSV: escape quotes by doubling them
       const line = [
         emp.id,
         `"${emp.name.replace(/"/g, '""')}"`,
@@ -153,7 +183,7 @@ function writeEmployees(employees) {
     });
 
     fs.writeFileSync(EMPLOYEES_CSV, lines.join('\n') + '\n');
-    console.log(`✅ Wrote ${employees.length} employees to CSV`);
+    console.log(`✅ Wrote ${employees.length} employees to CSV (${EMPLOYEES_CSV})`);
     return true;
   } catch (err) {
     console.error("🔴 Error writing to employees.csv:", err);
@@ -171,55 +201,82 @@ app.get('/', (req, res) => {
   if (req.session?.loggedIn) {
     return res.redirect('/manager');
   }
-  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+  res.sendFile(path.join(__dirname, 'public', 'index.html')); // Serve index.html
 });
 
-// Handle login
+// Handle login (WITH BCRYPT)
 app.post('/login', loginLimiter, (req, res) => {
   const { username, password } = req.body;
 
   try {
     if (!fs.existsSync(PASSWORD_FILE)) {
-      console.error("Password file missing!");
-      return res.status(500).send("Server not configured");
+      console.error("🔐 Password file missing!");
+      return res.status(500).send("Server not configured - Missing password file");
     }
 
     const auth = fs.readFileSync(PASSWORD_FILE, 'utf-8').trim();
-    const [user, pass] = auth.split(':');
+    const [user, hash] = auth.split(':'); // Expect username:hash
 
-    if (!user || !pass) {
-      console.error("Invalid password.txt format");
-      return res.status(500).send("Server config error");
+    if (!user || !hash) {
+      console.error("🔐 Invalid password.txt format");
+      return res.status(500).send("Server config error - Invalid password file format");
     }
 
-    if (username === user && password === pass) {
-      req.session.loggedIn = true;
-      console.log(`✅ Manager logged in`);
-      return res.redirect('/manager');
+    if (username === user) {
+      bcrypt.compare(password, hash, (err, isMatch) => {
+        if (err) {
+          console.error("🔐 Bcrypt compare error:", err);
+          return res.status(500).send("Server error during login");
+        }
+        if (isMatch) {
+          req.session.loggedIn = true;
+          console.log(`✅ Manager logged in: ${username}`);
+          return res.redirect('/manager');
+        } else {
+          console.log(`❌ Failed login attempt (wrong password): ${username}`);
+          // Redirect with error flag for client-side display
+          return res.redirect('/?error=1');
+        }
+      });
+    } else {
+       console.log(`❌ Failed login attempt (wrong username): ${username}`);
+       // Redirect with error flag for client-side display
+       return res.redirect('/?error=1');
     }
 
-    console.log(`❌ Failed login attempt: ${username}`);
-    res.send('<p>❌ Invalid credentials. <a href="/">Try again</a></p>');
   } catch (err) {
-    console.error("Login error:", err);
-    res.status(500).send("Server error");
+    console.error("🔐 Login error:", err);
+    res.status(500).send("Server error during login process");
   }
 });
 
 // Logout
 app.get('/logout', (req, res) => {
   if (req.session) {
-    req.session.destroy();
+    req.session.destroy(err => {
+      if (err) {
+        console.error("Error destroying session:", err);
+      }
+    });
   }
   res.redirect('/');
 });
 
 // Protected manager dashboard
+// MOVE manager.html OUT OF public/ FOLDER (e.g., into views/)
 app.get('/manager', (req, res) => {
   if (!req.session?.loggedIn) {
-    return res.redirect('/');
+    console.log("Unauthorized access attempt to /manager");
+    return res.redirect('/'); // Redirect unauthenticated users
   }
-  res.sendFile(path.join(__dirname, 'public', 'manager.html'));
+  // Serve from views/ folder
+  res.sendFile(path.join(__dirname, 'views', 'manager.html'));
+});
+
+// BLOCK direct access to manager.html
+app.get('/manager.html', (req, res) => {
+  console.log("Blocked direct access to /manager.html");
+  res.redirect('/'); // Redirect to login
 });
 
 // Create employee
@@ -258,7 +315,7 @@ app.post('/create-employee', (req, res) => {
 // Get all employees
 app.get('/employees', (req, res) => {
   const employees = readEmployees();
-  console.log(`📤 Sent ${employees.length} employees to manager`);
+  console.log(`📤 Sent ${employees.length} employees to requester`);
   res.json(employees);
 });
 
@@ -267,78 +324,92 @@ app.post('/update-location', async (req, res) => {
   const { id, latitude, longitude } = req.body;
 
   if (!id || latitude == null || longitude == null) {
-    return res.status(400).json({ success: false, message: 'Missing data' });
+    console.warn("⚠️ Invalid update-location data received:", req.body);
+    return res.status(400).json({ success: false, message: 'Missing data (ID, lat, or lng)' });
   }
 
   const lat = parseFloat(latitude);
   const lng = parseFloat(longitude);
   if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    console.warn(`⚠️ Invalid coordinates received for ID ${id}: lat=${latitude}, lng=${longitude}`);
     return res.status(400).json({ success: false, message: 'Invalid coordinates' });
   }
 
-  const city = await getCityFromCoordinates(lat, lng);
-  const employees = readEmployees();
-  const existing = employees.find(emp => emp.id === id);
+  try {
+    const city = await getCityFromCoordinates(lat, lng);
+    const employees = readEmployees();
+    const existingIndex = employees.findIndex(emp => emp.id === id);
 
-  const name = existing ? existing.name : "Unknown";
-  const email = existing ? existing.email : "unknown@company.com";
+    if (existingIndex === -1) {
+      console.log(`ℹ️ Employee ID ${id} not found, creating temporary entry for location update.`);
+      // Optionally reject if employee must exist first, or create a minimal entry
+      // For now, let's assume employee must exist. Reject.
+      return res.status(404).json({ success: false, message: 'Employee ID not found. Please contact manager.' });
+    }
 
-  const updated = {
-    id,
-    name,
-    email,
-    latitude: lat.toString(),
-    longitude: lng.toString(),
-    city,
-    lastSeen: new Date().toISOString()
-  };
+    // Update existing employee data
+    employees[existingIndex].latitude = lat.toString();
+    employees[existingIndex].longitude = lng.toString();
+    employees[existingIndex].city = city;
+    employees[existingIndex].lastSeen = new Date().toISOString();
 
-  const filtered = employees.filter(emp => emp.id !== id);
-  const all = [...filtered, updated];
-  const success = writeEmployees(all);
+    const success = writeEmployees(employees);
 
-  if (success) {
-    console.log(`📍 Updated location for ${id}: ${lat}, ${lng} → ${city}`);
-    res.json({ success: true, city });
-  } else {
-    res.status(500).json({ success: false, message: 'Failed to update location' });
+    if (success) {
+      console.log(`📍 Updated location for ${id}: ${lat}, ${lng} → ${city}`);
+      res.json({ success: true, city });
+    } else {
+      res.status(500).json({ success: false, message: 'Failed to update location (write error)' });
+    }
+  } catch (err) {
+    console.error("📍 Error in /update-location:", err);
+    res.status(500).json({ success: false, message: 'Internal server error during location update' });
   }
 });
 
 // Stop sharing
 app.post('/stop-sharing', (req, res) => {
   const { id } = req.body;
-  if (!id) return res.status(400).json({ success: false, message: 'ID required' });
+  if (!id) {
+    console.warn("⚠️ Stop-sharing called without ID");
+    return res.status(400).json({ success: false, message: 'Employee ID required' });
+  }
 
   const employees = readEmployees();
-  const emp = employees.find(e => e.id === id);
-  if (!emp) return res.json({ success: true });
+  const empIndex = employees.findIndex(e => e.id === id);
+  if (empIndex === -1) {
+    console.log(`ℹ️ Stop-sharing: Employee ${id} not found`);
+    return res.json({ success: true }); // Idempotent - if not found, consider success
+  }
 
-  emp.latitude = '';
-  emp.longitude = '';
-  emp.city = 'Unknown';
-  emp.lastSeen = '';
+  employees[empIndex].latitude = '';
+  employees[empIndex].longitude = '';
+  employees[empIndex].city = 'Unknown';
+  employees[empIndex].lastSeen = '';
 
   const success = writeEmployees(employees);
   if (success) {
     console.log(`🛑 Cleared location for ${id}`);
     res.json({ success: true });
   } else {
-    res.status(500).json({ success: false, message: 'Write failed' });
+    console.error(`🛑 Failed to clear location for ${id}`);
+    res.status(500).json({ success: false, message: 'Write failed during stop-sharing' });
   }
 });
 
 // Check if ID exists
 app.get('/employee-exists/:id', (req, res) => {
   const { id } = req.params;
-  const exists = readEmployees().some(emp => emp.id === id);
+  // Sanitize input if needed, though path params are generally safer
+  const employees = readEmployees();
+  const exists = employees.some(emp => emp.id === id);
   res.json({ exists });
 });
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`✅ Server running at http://localhost:${PORT}`);
-  console.log(`📁 Data directory: ${DATA_DIR}`);
-  console.log(`📄 employees.csv: ${fs.existsSync(EMPLOYEES_CSV) ? 'OK' : 'MISSING!'}`);
-  console.log(`🔑 password.txt: ${fs.existsSync(PASSWORD_FILE) ? 'OK' : 'MISSING!'}`);
+app.listen(PORT, '0.0.0.0', () => { // Bind to 0.0.0.0 for Render
+  console.log(`✅ Server running at http://0.0.0.0:${PORT}`);
+  console.log(`📁 Data directory configured: ${DATA_DIR}`);
+  console.log(`📄 employees.csv check: ${fs.existsSync(EMPLOYEES_CSV) ? 'OK' : 'MISSING (will be created)'} `);
+  console.log(`🔑 password.txt check: ${fs.existsSync(PASSWORD_FILE) ? 'OK' : 'MISSING (create it!)'} `);
 });
