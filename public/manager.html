@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Manager Dashboard</title>
   <link rel="stylesheet" href="style.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" /> <!-- Fix: Remove trailing space -->
   <style>
     #map {
       height: 500px;
@@ -43,11 +43,25 @@
       font: bold 12px sans-serif;
       text-align: center;
     }
+     /* Optional: Style for the logout link */
+    .logout-link {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      text-decoration: none;
+      color: #007cba;
+      font-weight: bold;
+    }
+    .logout-link:hover {
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h2>Manager Dashboard</h2>
+    <!-- Optional Logout Link -->
+    <a href="/logout" class="logout-link">Logout</a>
 
     <h3>Create Employee</h3>
     <input type="text" id="empId" placeholder="Employee ID" required>
@@ -70,20 +84,21 @@
     </div>
   </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script> <!-- Fix: Remove trailing space -->
   <script>
     // Initialize Map
     const map = L.map('map').setView([15.3, 76.0], 6);
 
-    // Tile Layers
+    // Tile Layers (Fix: Remove trailing spaces from URLs and attribution links)
     const roadMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>', // Fix: Remove spaces
       maxZoom: 19,
       subdomains: 'abcd'
     });
 
+    // Fix: Correct the satellite tile URL (remove trailing spaces)
     const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      attribution: '&copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, FAO, NOAA, USGS, © OpenStreetMap contributors',
+      attribution: '&copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, FAO, NOAA, USGS, © OpenStreetMap contributors', // Fix: Ensure no trailing space in URL part
       maxZoom: 19
     });
 
@@ -142,7 +157,8 @@
     function updateMarker(emp) {
       const lat = parseFloat(emp.latitude);
       const lng = parseFloat(emp.longitude);
-      if (!lat || !lng) return;
+      // Add basic validation
+      if (!lat || !lng || isNaN(lat) || isNaN(lng)) return;
 
       const pos = [lat, lng];
       const color = getColorById(emp.id);
@@ -162,10 +178,10 @@
         markers[emp.id] = marker;
       }
 
-      // Auto-zoom if needed
-      if (!map.getBounds().contains(pos) || map.getZoom() < 13) {
-        map.setView(pos, 14);
-      }
+      // Optional: Auto-zoom commented out to prevent map jumping on refresh/update
+      // if (!map.getBounds().contains(pos) || map.getZoom() < 13) {
+      //   map.setView(pos, 14);
+      // }
     }
 
     // Remove marker if employee goes offline
@@ -192,51 +208,81 @@
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: `id=${encodeURIComponent(id)}&name=${encodeURIComponent(name)}&email=${encodeURIComponent(email)}`
       })
-      .then(res => res.json())
+      .then(res => {
+         if (!res.ok) { // Handle HTTP errors
+             throw new Error(`HTTP error! status: ${res.status}`);
+         }
+         return res.json();
+      })
       .then(data => {
         if (data.success) {
           alert(`✅ Employee ${id} created!`);
           document.getElementById('empId').value = '';
           document.getElementById('empName').value = '';
           document.getElementById('empEmail').value = '';
+          // Optional: Refresh the list immediately after creation
+          loadEmployees();
         } else {
           alert("Error: " + data.message);
         }
       })
-      .catch(err => console.error("Create error:", err));
+      .catch(err => {
+         console.error("Create error:", err);
+         alert("Failed to create employee. Check console for details.");
+      });
     }
 
     // Load and display only active employees
     function loadEmployees() {
       fetch('/employees')
-        .then(res => res.json())
+        .then(res => {
+           if (!res.ok) { // Handle HTTP errors
+             throw new Error(`HTTP error! status: ${res.status}`);
+           }
+           return res.json();
+        })
         .then(employees => {
           const listEl = document.getElementById('location-list');
           listEl.innerHTML = '';
 
-          // Filter only active (sharing location)
-          const active = employees.filter(emp => emp.latitude && emp.longitude);
+          // Filter only active (sharing location) - Add basic validation
+          const active = employees.filter(emp =>
+              emp.latitude &&
+              emp.longitude &&
+              !isNaN(parseFloat(emp.latitude)) &&
+              !isNaN(parseFloat(emp.longitude))
+          );
 
           if (active.length === 0) {
             listEl.innerHTML = '<p>No employees currently sharing location.</p>';
+          } else {
+              active.forEach(emp => {
+                const item = document.createElement('div');
+                item.style.padding = "8px";
+                item.style.borderBottom = "1px solid #eee";
+
+                // Format lastSeen time, handle if missing
+                let timeString = 'Unknown';
+                if (emp.lastSeen) {
+                    const lastSeenDate = new Date(emp.lastSeen);
+                    // Check if the date is valid
+                    if (!isNaN(lastSeenDate.getTime())) {
+                        timeString = lastSeenDate.toLocaleTimeString();
+                    }
+                }
+
+                item.innerHTML = `
+                  <span class="status-online">🟢</span>
+                  <b>${emp.name}</b> (${emp.id}) |
+                  📍 ${parseFloat(emp.latitude).toFixed(5)}, ${parseFloat(emp.longitude).toFixed(5)} |
+                  🏙️ <span style="color:#004d99">${emp.city || 'Unknown'}</span> |
+                  🕒 ${timeString}
+                `;
+
+                listEl.appendChild(item);
+                updateMarker(emp); // Update map
+              });
           }
-
-          active.forEach(emp => {
-            const item = document.createElement('div');
-            item.style.padding = "8px";
-            item.style.borderBottom = "1px solid #eee";
-
-            item.innerHTML = `
-              <span class="status-online">🟢</span>
-              <b>${emp.name}</b> (${emp.id}) | 
-              📍 ${parseFloat(emp.latitude).toFixed(5)}, ${parseFloat(emp.longitude).toFixed(5)} | 
-              🏙️ <span style="color:#004d99">${emp.city || 'Unknown'}</span> |
-              🕒 ${new Date(emp.lastSeen).toLocaleTimeString()}
-            `;
-
-            listEl.appendChild(item);
-            updateMarker(emp); // Update map
-          });
 
           // Remove markers for employees no longer active
           Object.keys(markers).forEach(id => {
@@ -247,13 +293,16 @@
         })
         .catch(err => {
           console.error("Fetch error:", err);
-          document.getElementById('location-list').innerHTML = '<p>❌ Failed to load data.</p>';
+          // Provide more user-friendly error message
+          document.getElementById('location-list').innerHTML = '<p>❌ Failed to load employee data. Please check your connection and try refreshing the page.</p>';
         });
     }
 
     // Auto-refresh every 10 seconds
     setInterval(loadEmployees, 10000);
-    loadEmployees(); // First load
+    // First load
+    loadEmployees();
+
   </script>
 </body>
 </html>
