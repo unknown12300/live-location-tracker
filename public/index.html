@@ -251,6 +251,13 @@
       url.searchParams.delete('error');
       history.replaceState(null, '', url);
     }
+    app.get('/', (req, res) => {
+  if (req.session?.loggedIn) {
+    return res.redirect('/manager'); // If logged in, go to dashboard
+  }
+  res.sendFile(path.join(__dirname, 'public', 'index.html')); // If not logged in, show login page
+});
   </script>
 </body>
 </html>
+
