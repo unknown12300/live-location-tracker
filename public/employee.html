@@ -3,196 +3,105 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <link rel="icon" type="image/png" href="https://shridevimedical.org/wp-content/uploads/2024/07/Shridevi_Medical-Logo.png" />
-  <title>Share Your Location</title>
+  <title>Employee Dashboard</title>
   <link rel="stylesheet" href="style.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      margin: 0;
+      font-family: Arial, sans-serif;
       min-height: 100vh;
+      background: linear-gradient(135deg, #89f7fe, #66a6ff);
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 20px;
     }
 
     .container {
-      max-width: 420px;
-      width: 100%;
-      padding: 40px 30px;
+      max-width: 400px;
+      width: 90%;
+      margin: 40px auto;
+      padding: 20px;
       background: white;
-      border-radius: 24px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15), 0 8px 25px rgba(0, 0, 0, 0.1);
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
       text-align: center;
-      backdrop-filter: blur(10px);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .container::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 4px;
-      background: linear-gradient(90deg, #667eea, #764ba2, #f093fb, #f5576c);
-      background-size: 300% 100%;
-      animation: gradientShift 3s ease infinite;
-    }
-
-    @keyframes gradientShift {
-      0%, 100% { background-position: 0% 50%; }
-      50% { background-position: 100% 50%; }
     }
 
     .logo {
-      width: 120px;
-      height: auto;
-      margin-bottom: 30px;
-      filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
-      transition: transform 0.3s ease;
-    }
-
-    .logo:hover {
-      transform: scale(1.05);
-    }
-
-    h2 {
-      font-size: 28px;
-      font-weight: 700;
-      color: #2d3748;
-      margin-bottom: 8px;
-      letter-spacing: -0.5px;
-    }
-
-    .subtitle {
-      font-size: 16px;
-      color: #718096;
-      margin-bottom: 32px;
-      font-weight: 400;
-      line-height: 1.5;
+      max-width: 120px;
+      margin: 0 auto 10px;
+      display: block;
     }
 
     input {
-      padding: 16px 20px;
+      padding: 12px;
       width: 100%;
-      margin: 0 0 24px 0;
-      border: 2px solid #e2e8f0;
-      border-radius: 16px;
+      margin: 10px 0;
+      border: 1px solid #ccc;
+      border-radius: 5px;
       font-size: 16px;
-      font-weight: 500;
-      transition: all 0.3s ease;
-      background: #f8fafc;
-      color: #2d3748;
-    }
-
-    input:focus {
-      outline: none;
-      border-color: #667eea;
-      background: white;
-      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-      transform: translateY(-1px);
-    }
-
-    input::placeholder {
-      color: #a0aec0;
-      font-weight: 400;
-    }
-
-    .button-group {
-      display: flex;
-      gap: 12px;
-      margin-bottom: 20px;
+      box-sizing: border-box;
     }
 
     .btn {
-      flex: 1;
-      padding: 16px 24px;
+      padding: 12px 20px;
+      margin: 8px 5px;
       border: none;
-      border-radius: 16px;
+      border-radius: 5px;
       cursor: pointer;
-      font-size: 16px;
-      font-weight: 600;
-      font-family: inherit;
-      transition: all 0.3s ease;
-      position: relative;
-      overflow: hidden;
-      text-transform: none;
-      letter-spacing: 0.5px;
-    }
-
-    .btn::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: -100%;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-      transition: left 0.5s;
-    }
-
-    .btn:hover::before {
-      left: 100%;
+      font-size: 15px;
+      font-weight: bold;
     }
 
     .btn-start {
-      background: linear-gradient(135deg, #48bb78, #38a169);
+      background: #28a745;
       color: white;
-      box-shadow: 0 4px 15px rgba(72, 187, 120, 0.3);
-    }
-
-    .btn-start:hover {
-      background: linear-gradient(135deg, #38a169, #2f855a);
-      transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(72, 187, 120, 0.4);
     }
 
     .btn-stop {
-      background: linear-gradient(135deg, #f56565, #e53e3e);
+      background: #d9534f;
       color: white;
-      box-shadow: 0 4px 15px rgba(245, 101, 101, 0.3);
-    }
-
-    .btn-stop:hover {
-      background: linear-gradient(135deg, #e53e3e, #c53030);
-      transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(245, 101, 101, 0.4);
     }
 
     .btn:disabled {
-      background: #e2e8f0;
-      color: #a0aec0;
+      background: #ccc;
       cursor: not-allowed;
-      transform: none;
-      box-shadow: none;
-    }
-
-    .btn:disabled::before {
-      display: none;
     }
 
     #status {
-      margin-top: 20px;
+      margin-top: 15px;
       font-size: 14px;
-      font-weight: 400;
+      font-weight: 500;
       min-height: 20px;
-      word-break: break-word;
-      color: transparent;
-      font-size: 0;
     }
 
+    .info-box {
+      margin-top: 15px;
+      padding: 12px;
+      background: #f8f9fa;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      font-size: 14px;
+      color: #333;
+      text-align: left;
+    }
+
+    .info-box b {
+      display: inline-block;
+      width: 90px;
+    }
+
+    /* Spinner for loading state */
     .spinner {
-       display: none;
+       border: 2px solid #f3f3f3;
+       border-top: 2px solid #3498db;
+       border-radius: 50%;
+       width: 16px;
+       height: 16px;
+       animation: spin 1s linear infinite;
+       display: inline-block;
+       vertical-align: middle;
+       margin-right: 5px;
     }
 
     @keyframes spin {
@@ -200,182 +109,99 @@
       100% { transform: rotate(360deg); }
     }
 
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .container {
-      animation: fadeIn 0.6s ease-out;
-    }
-
     @media (max-width: 480px) {
       .container {
-        margin: 10px;
-        padding: 30px 20px;
+        padding: 15px;
       }
-
-      .logo {
-        width: 100px;
-        margin-bottom: 24px;
-      }
-
-      h2 {
-        font-size: 24px;
-      }
-
-      .subtitle {
-        font-size: 15px;
-        margin-bottom: 28px;
-      }
-
-      .button-group {
-        flex-direction: column;
-        gap: 12px;
-      }
-
       .btn {
-        padding: 14px 20px;
-        font-size: 15px;
+        width: 100%;
+        margin: 8px 0;
       }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <img src="https://shridevimedical.org/wp-content/uploads/2024/07/Shridevi_Medical-Logo.png" alt="Shridevi Medical Logo" class="logo">
-    
+    <img src="https://shridevimedical.org/wp-content/uploads/2024/07/Shridevi_Medical-Logo.png" alt="Shridevi Logo" class="logo" />
     <h2>📍 Share Your Location</h2>
-    <p class="subtitle">Enter your Employee ID to start sharing.</p>
+    <p>Enter your Employee ID to start sharing.</p>
 
     <input type="text" id="employeeId" placeholder="Enter Employee ID" required />
 
-    <div class="button-group">
-      <button id="startBtn" class="btn btn-start" onclick="startSharing()">🟢 Start Sharing</button>
-      <button id="stopBtn" class="btn btn-stop" onclick="stopSharing()" disabled>🔴 Stop Sharing</button>
-    </div>
+    <button id="startBtn" class="btn btn-start" onclick="startSharing()">🟢 Start Sharing</button>
+    <button id="stopBtn" class="btn btn-stop" onclick="stopSharing()" disabled>🔴 Stop Sharing</button>
 
-    <p id="status"></p>
+    <p id="status">Status: Ready</p>
+
+    <div class="info-box" id="locationInfo" style="display:none;">
+      <b>ID:</b> <span id="eid"></span><br/>
+      <b>Location:</b> <span id="coords">Waiting...</span><br/>
+      <b>City:</b> <span id="city">Fetching...</span><br/>
+      <b>Updated:</b> <span id="time">-</span>
+    </div>
   </div>
 
   <script>
     let watchId = null;
     let isSharing = false;
-
-    // --- Local Storage Keys ---
-    const EMPLOYEE_ID_KEY = 'employee_tracker_employeeId';
-    const IS_SHARING_KEY = 'employee_tracker_isSharing';
-    const LAST_LOCATION_KEY = 'employee_tracker_lastLocation'; // Still used for resume logic
+    const EMPLOYEE_ID_KEY = 'employeeId';
+    const IS_SHARING_KEY = 'isSharing';
+    const LAST_LOCATION_KEY = 'lastLocation'; // Store last known location data
 
     // --- Local Storage Helpers ---
     function saveState() {
-        try {
-            localStorage.setItem(EMPLOYEE_ID_KEY, document.getElementById('employeeId').value.trim());
-            localStorage.setItem(IS_SHARING_KEY, isSharing.toString());
-        } catch (e) {
-            console.warn("Could not save state to localStorage:", e);
-        }
+        localStorage.setItem(EMPLOYEE_ID_KEY, document.getElementById('employeeId').value.trim());
+        localStorage.setItem(IS_SHARING_KEY, isSharing.toString());
     }
 
     function loadState() {
-        try {
-            const savedId = localStorage.getItem(EMPLOYEE_ID_KEY);
-            const wasSharing = localStorage.getItem(IS_SHARING_KEY) === 'true';
-            return { savedId, wasSharing, lastLocationData: {} }; // lastLocationData not used for display
-        } catch (e) {
-            console.warn("Could not load state from localStorage:", e);
-            return { savedId: null, wasSharing: false, lastLocationData: {} };
-        }
+        const savedId = localStorage.getItem(EMPLOYEE_ID_KEY);
+        const wasSharing = localStorage.getItem(IS_SHARING_KEY) === 'true';
+        const lastLocationData = JSON.parse(localStorage.getItem(LAST_LOCATION_KEY) || '{}');
+        return { savedId, wasSharing, lastLocationData };
     }
 
     function clearState() {
-        try {
-            localStorage.removeItem(EMPLOYEE_ID_KEY);
-            localStorage.removeItem(IS_SHARING_KEY);
-            localStorage.removeItem(LAST_LOCATION_KEY);
-        } catch (e) {
-            console.warn("Could not clear state from localStorage:", e);
-        }
+        localStorage.removeItem(EMPLOYEE_ID_KEY);
+        localStorage.removeItem(IS_SHARING_KEY);
+        localStorage.removeItem(LAST_LOCATION_KEY); // Clear last location on stop
     }
 
     function saveLastLocation(id, lat, lng, city) {
-        try {
-            // Keep saving last location for potential resume logic or beacon
-            const locationData = {
-                id,
-                lat: parseFloat(lat),
-                lng: parseFloat(lng),
-                city,
-                timestamp: new Date().toISOString()
-            };
-            localStorage.setItem(LAST_LOCATION_KEY, JSON.stringify(locationData));
-        } catch (e) {
-            console.warn("Could not save last location to localStorage:", e);
-        }
+        const locationData = {
+            id,
+            lat: parseFloat(lat),
+            lng: parseFloat(lng),
+            city,
+            timestamp: new Date().toISOString()
+        };
+        localStorage.setItem(LAST_LOCATION_KEY, JSON.stringify(locationData));
     }
 
     // --- UI Update Functions ---
-    // Modified updateStatus to be minimal or hidden
     function updateStatus(text, showSpinner = false) {
-      // Option 1: Completely hide the status element
-      // document.getElementById('status').style.display = 'none';
-
-      // Option 2: Keep element but make content invisible (element still takes space)
-      // This prevents layout shifts if buttons move
-      const statusElement = document.getElementById('status');
-      statusElement.textContent = ''; // Clear any text
-      statusElement.style.color = 'transparent';
-      statusElement.style.fontSize = '0';
-      // Hide spinner
-      // const spinnerHtml = showSpinner ? '<span class="spinner"></span>' : '';
-      // statusElement.innerHTML = spinnerHtml; // Even if spinner is hidden, this would clear it
-
-      // Option 3: Show only very generic messages (requires changing calls to updateStatus)
-      /*
-      const genericMessages = {
-        'verifying': 'Verifying...',
-        'finding': 'Finding location...',
-        'sharing': 'Sharing...',
-        'stopped': 'Stopped.',
-        'resuming': 'Resuming...',
-        'error': 'Error. Please try again.'
-      };
-      let genericText = '...'; // Default
-      if (text.includes('Verifying')) genericText = genericMessages.verifying;
-      else if (text.includes('Finding')) genericText = genericMessages.finding;
-      else if (text.includes('Sharing location')) genericText = genericMessages.sharing; // Hides city
-      else if (text.includes('stopped')) genericText = genericMessages.stopped;
-      else if (text.includes('Resuming')) genericText = genericMessages.resuming;
-      else if (text.includes('Failed') || text.includes('Error') || text.includes('Invalid') || text.includes('not found')) genericText = genericMessages.error;
-
-      statusElement.textContent = genericText;
-      statusElement.style.color = ''; // Reset color
-      statusElement.style.fontSize = ''; // Reset font size
-      */
+      const spinnerHtml = showSpinner ? '<span class="spinner"></span>' : '';
+      document.getElementById('status').innerHTML = spinnerHtml + text;
     }
 
-
-    // Function to update info is removed/commented out as it's no longer needed for display
-    /*
     function updateInfo(id, lat, lng, city) {
-      // This function is intentionally left blank or removed
-      // Employee no longer sees their own location details
+      document.getElementById('eid').textContent = id;
+      document.getElementById('coords').textContent = `${parseFloat(lat).toFixed(6)}, ${parseFloat(lng).toFixed(6)}`;
+      document.getElementById('city').textContent = city || "Fetching...";
+      document.getElementById('time').textContent = new Date().toLocaleTimeString();
+      document.getElementById('locationInfo').style.display = 'block';
     }
-    */
-
 
     // --- Geocoding ---
     function getCityName(lat, lng, callback) {
       fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=14`, {
         headers: {
-          'User-Agent': 'EmployeeTracker/1.0 (contact@yourcompany.com)'
+          'User-Agent': 'EmployeeTracker/1.0'
         }
       })
       .then(res => {
          if (!res.ok) {
-             return res.text().then(text => {
-                 throw new Error(`OSM HTTP error ${res.status}: ${text}`);
-             });
+             throw new Error(`OSM HTTP error: ${res.status}`);
          }
          return res.json();
       })
@@ -388,9 +214,8 @@
             data.address.village,
             data.address.hamlet,
             data.address.suburb,
-            data.address.state_district,
             data.address.state
-          ].find(Boolean) || "Near " + (data.display_name.split(',')[0] || "Unknown Area");
+          ].find(Boolean) || "Near " + (data.address.state || "India");
         }
         callback(city);
       })
@@ -402,11 +227,12 @@
 
     // --- Server Communication ---
     function sendLocation(id, lat, lng) {
+      // Save to localStorage immediately
       getCityName(lat, lng, (city) => {
           saveLastLocation(id, lat, lng, city);
-          // Update status minimally or not at all for the employee
-          // updateStatus(`🟢 Sharing location: ${city}`); // <-- MODIFIED/HIDDEN
-          updateStatus("Sharing..."); // Show a very generic message if desired, otherwise call with empty string or omit
+          // Update UI with the fetched city
+          updateInfo(id, lat, lng, city);
+          updateStatus(`🟢 Sharing location: ${city}`);
       });
 
       fetch('/update-location', {
@@ -414,6 +240,9 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: id,
+          // Note: Name/Email are typically retrieved by the server from its records
+          // based on the ID. Sending them from client is less common.
+          // If needed, they would need to be stored locally too.
           latitude: lat,
           longitude: lng
         })
@@ -423,11 +252,7 @@
              console.error("Server update failed:", res.status, res.statusText);
          }
       })
-      .catch(err => {
-          console.error("❌ Network error sending location to server:", err);
-          // updateStatus("❌ Network error sending location"); // <-- MODIFIED/HIDDEN
-          updateStatus("Error sending location"); // Generic error message if needed
-      });
+      .catch(err => console.error("❌ Network error sending location:", err));
     }
 
     function notifyStopSharing(id) {
@@ -435,11 +260,8 @@
         fetch('/stop-sharing', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: id })
-        })
-        .catch(err => {
-            console.warn("Error notifying server of stop-sharing:", err);
-        });
+          body: JSON.stringify({ id })
+        }).catch(err => console.warn("Error notifying stop-sharing:", err));
       }
     }
 
@@ -452,50 +274,45 @@
         return;
       }
 
+      // Save ID immediately
       localStorage.setItem(EMPLOYEE_ID_KEY, id);
 
-      // updateStatus("🔍 Verifying your ID...", true); // <-- MODIFIED/HIDDEN
-      updateStatus("Verifying..."); // Generic message
-
+      updateStatus("🔍 Verifying your ID...", true);
       let exists = false;
       try {
         const res = await fetch(`/employee-exists/${encodeURIComponent(id)}`);
-        if (!res.ok) {
-            const errorText = await res.text().catch(() => 'Unknown error');
-            throw new Error(`HTTP ${res.status}: ${errorText}`);
-        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         exists = data.exists;
       } catch (err) {
         console.error("ID verification failed:", err);
-        // updateStatus("❌ Failed to verify ID. Check internet or contact admin."); // <-- MODIFIED/HIDDEN
-        updateStatus("Verification failed"); // Generic message
+        updateStatus("❌ Failed to verify ID. Check internet or contact admin.");
         return;
       }
 
       if (!exists) {
-        // updateStatus(`<span style="color: #d9534f;">❌ Employee ID <b>${id}</b> not found. Contact your manager.</span>`); // <-- MODIFIED/HIDDEN
-         updateStatus("ID not found"); // Generic message
+        updateStatus(`<span style="color: #d9534f;">❌ Employee ID <b>${id}</b> not found. Contact your manager.</span>`);
         return;
       }
 
       if (!navigator.geolocation) {
-        // updateStatus("❌ Browser doesn't support GPS."); // <-- MODIFIED/HIDDEN
-        updateStatus("GPS not supported"); // Generic message
+        updateStatus("❌ Browser doesn't support GPS.");
         return;
       }
 
+      // Update UI for sharing state
       document.getElementById('startBtn').disabled = true;
       document.getElementById('stopBtn').disabled = false;
       isSharing = true;
-      saveState();
-      // updateStatus("🔍 Finding your location...", true); // <-- MODIFIED/HIDDEN
-      updateStatus("Finding location..."); // Generic message
+      saveState(); // Save state immediately upon starting
+      updateStatus("🔍 Finding your location...", true);
 
+      // Clear any previous watch
       if (watchId !== null) {
         navigator.geolocation.clearWatch(watchId);
       }
 
+      // Start watching position
       watchId = navigator.geolocation.watchPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
@@ -503,13 +320,14 @@
         },
         (err) => {
           console.error("Geolocation error:", err);
-          // updateStatus(`❌ Geolocation Error: ${err.message} (${err.code})`); // <-- MODIFIED/HIDDEN
-          updateStatus("Location error"); // Generic message
+          updateStatus(`❌ Geolocation Error: ${err.message} (${err.code})`);
+          // Don't automatically stop sharing on a single error, let user decide
+          // stopSharing();
         },
         {
           enableHighAccuracy: true,
-          timeout: 15000,
-          maximumAge: 5000
+          timeout: 15000, // Increased timeout slightly
+          maximumAge: 5000  // Allow slightly stale cache
         }
       );
     }
@@ -519,67 +337,92 @@
         navigator.geolocation.clearWatch(watchId);
         watchId = null;
       }
-
       const id = document.getElementById('employeeId').value.trim();
       isSharing = false;
-      clearState();
+      clearState(); // Clear all persistent state
 
+      // Update UI
       document.getElementById('startBtn').disabled = false;
       document.getElementById('stopBtn').disabled = true;
-      // updateStatus("🛑 Location sharing stopped."); // <-- MODIFIED/HIDDEN
-      updateStatus("Stopped."); // Generic message
+      updateStatus("🛑 Location sharing stopped.");
+      document.getElementById('locationInfo').style.display = 'none';
 
+      // Notify server
       notifyStopSharing(id);
     }
 
     // --- Page Load Logic ---
     window.addEventListener('DOMContentLoaded', () => {
-        const { savedId, wasSharing } = loadState();
+        const { savedId, wasSharing, lastLocationData } = loadState();
 
         if (savedId) {
             document.getElementById('employeeId').value = savedId;
         }
 
+        // If was sharing, restore last known info and resume
         if (wasSharing && savedId) {
-            // updateStatus("🔁 Resuming sharing..."); // <-- MODIFIED/HIDDEN
-            updateStatus("Resuming..."); // Generic message
+            // Restore last known location info if available
+            if (lastLocationData.id === savedId && lastLocationData.lat && lastLocationData.lng) {
+                 updateInfo(
+                     lastLocationData.id,
+                     lastLocationData.lat,
+                     lastLocationData.lng,
+                     lastLocationData.city
+                 );
+                 // Format timestamp for display
+                 const displayTime = lastLocationData.timestamp ?
+                     new Date(lastLocationData.timestamp).toLocaleTimeString() : '-';
+                 document.getElementById('time').textContent = displayTime;
+                 updateStatus(`🔁 Resumed. Last update: ${displayTime}`);
+                 document.getElementById('locationInfo').style.display = 'block';
+            } else {
+                 updateStatus("🔁 Resuming sharing...");
+            }
+            // Attempt to start sharing after a short delay to allow UI to load
             setTimeout(() => {
                  startSharing().catch(err => {
                      console.error("Error auto-starting sharing:", err);
-                     // updateStatus("❌ Failed to resume sharing automatically."); // <-- MODIFIED/HIDDEN
-                     updateStatus("Resume failed"); // Generic message
+                     updateStatus("❌ Failed to resume sharing automatically.");
                  });
-            }, 500);
+            }, 500); // 500ms delay
         }
-        // Initial status is now empty or generic due to CSS/HTML
     });
 
-    // --- Cleanup on Tab Close/Navigate Away ---
+    // --- Cleanup on Tab Close ---
     window.addEventListener('beforeunload', (e) => {
+      // Save state one last time
       saveState();
-
+      // If sharing, try to notify the server using sendBeacon (more reliable on unload)
       if (isSharing) {
         const id = document.getElementById('employeeId').value.trim();
         if (id) {
+          // Get last known lat/lng if available for the beacon
+          const lastLoc = JSON.parse(localStorage.getItem(LAST_LOCATION_KEY) || '{}');
           const beaconData = {
-            id: id
+            id: id,
+            latitude: lastLoc.lat || null,
+            longitude: lastLoc.lng || null
+            // Add other relevant fields if needed by /stop-sharing
           };
           const blob = new Blob([JSON.stringify(beaconData)], { type: 'application/json' });
-
+          // Use sendBeacon for best effort delivery on unload
           if (navigator.sendBeacon) {
-             const success = navigator.sendBeacon('/stop-sharing', blob);
-             if (!success) {
-                 console.warn("sendBeacon failed, stop-sharing might not be sent.");
-             }
+             navigator.sendBeacon('/stop-sharing', blob);
           } else {
-             console.warn("sendBeacon not supported, stop-sharing might not be sent reliably.");
+             // Fallback if sendBeacon is not supported (unlikely)
+             // A synchronous XHR was previously used, but is deprecated.
+             // The fetch API is async and might not complete.
+             // sendBeacon is the recommended approach.
+             console.warn("sendBeacon not supported, stop-sharing might not be sent.");
           }
         }
       }
-
+      // For the beforeunload dialog, modern browsers often ignore custom messages
+      // but setting returnValue triggers the default dialog.
       if (isSharing) {
-         e.returnValue = '';
-         return '';
+         e.preventDefault();
+         e.returnValue = ''; // Triggers default browser confirmation dialog
+         return ''; // Fallback
       }
     });
 
