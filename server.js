@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3000;
 
 // --- Use persistent disk on Render ---
 const DATA_DIR = process.env.DATA_DIR || '/var/data';
-const EMPLOYEES_CSV = path.join(DATA_DIR, 'employees.csv');
+const EMPLOYEES_CSV = path.join(DATA_DIR, 'employees.txt');
 const PASSWORD_FILE = path.join(DATA_DIR, 'password.txt');
 
 // 🔴 DO NOT try to create /var/data — it's pre-mounted by Render
@@ -29,13 +29,13 @@ if (DATA_DIR === '/var/data') {
   }
 }
 
-// Create employees.csv if it doesn't exist
+// Create employees.txt if it doesn't exist
 if (!fs.existsSync(EMPLOYEES_CSV)) {
   try {
     fs.writeFileSync(EMPLOYEES_CSV, 'id,name,email,latitude,longitude,city,lastSeen\n');
-    console.log('📄 Created employees.csv');
+    console.log('📄 Created employees.txt');
   } catch (err) {
-    console.error('🔴 Failed to create employees.csv:', err);
+    console.error('🔴 Failed to create employees.txt:', err);
   }
 }
 
@@ -160,7 +160,7 @@ function readEmployees() {
       })
       .filter(Boolean);
   } catch (err) {
-    console.error("🔴 Error reading employees.csv:", err);
+    console.error("🔴 Error reading employees.txt:", err);
     return [];
   }
 }
@@ -186,7 +186,7 @@ function writeEmployees(employees) {
     console.log(`✅ Wrote ${employees.length} employees to CSV`);
     return true;
   } catch (err) {
-    console.error("🔴 Error writing to employees.csv:", err);
+    console.error("🔴 Error writing to employees.txt:", err);
     return false;
   }
 }
@@ -288,7 +288,7 @@ app.post('/update-location', async (req, res) => {
 
   // If the ID is not found in the CSV, reject the update
   if (!existingEmployee) {
-    console.log(`❌ Update failed: ID ${id} not found in employees.csv`);
+    console.log(`❌ Update failed: ID ${id} not found in employees.txt`);
     return res.status(404).json({ success: false, message: 'Employee ID not found. Please contact manager.' });
   }
 
@@ -357,7 +357,7 @@ app.get('/employee-exists/:id', (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server is running on port ${PORT}`);
   console.log(`📁 Data directory: ${DATA_DIR}`);
-  console.log(`📄 employees.csv: ${fs.existsSync(EMPLOYEES_CSV) ? 'OK' : 'MISSING!'}`);
+  console.log(`📄 employees.txt: ${fs.existsSync(EMPLOYEES_CSV) ? 'OK' : 'MISSING!'}`);
   console.log(`🔑 password.txt: ${fs.existsSync(PASSWORD_FILE) ? 'OK' : 'MISSING!'}`);
   if (isProduction) {
     console.warn('\n💡 Access your app via HTTPS:');
@@ -366,3 +366,4 @@ app.listen(PORT, '0.0.0.0', () => {
     console.warn('🔐 Ensure SESSION_SECRET is set!\n');
   }
 });
+
