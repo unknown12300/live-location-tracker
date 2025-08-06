@@ -14,13 +14,20 @@ const EMPLOYEES_CSV = path.join(DATA_DIR, 'employees.csv');
 const PASSWORD_FILE = path.join(DATA_DIR, 'password.txt');
 
 // Ensure data directory exists
-if (!fs.existsSync(DATA_DIR)) {
-  try {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-    console.log(`📁 Created data directory: ${DATA_DIR}`);
-  } catch (err) {
-    console.error(`🔴 Failed to create data directory ${DATA_DIR}:`, err);
-    process.exit(1); // Exit if we can't create the directory
+// Only create the directory if it's NOT /var/data (i.e., during local dev)
+if (DATA_DIR === '/var/data') {
+  console.log('📁 Using Render persistent disk: /var/data');
+  // Do NOT try to create /var/data — Render handles this
+} else {
+  // Local development: create ./data if needed
+  if (!fs.existsSync(DATA_DIR)) {
+    try {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+      console.log(`📁 Created local data directory: ${DATA_DIR}`);
+    } catch (err) {
+      console.error(`🔴 Failed to create local data directory:`, err);
+      process.exit(1);
+    }
   }
 }
 
@@ -163,7 +170,7 @@ function readEmployees() {
 // Write employees to CSV
 function writeEmployees(employees) {
   try {
-    const lines = ['id,name,email,latitude,longitude,city,lastSeen'];
+    const lines = ['id,name,email,latitude,longitude,city,lastSeen\n'];
     employees.forEach(emp => {
       const line = [
         emp.id,
@@ -386,3 +393,4 @@ app.listen(PORT, '0.0.0.0', () => {
     console.warn('🔐 Ensure SESSION_SECRET is set in environment\n');
   }
 });
+
