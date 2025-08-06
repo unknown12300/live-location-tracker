@@ -145,7 +145,6 @@ function readEmployees() {
   }
 }
 
-// Write employees to CSV
 function writeEmployees(employees) {
   try {
     const lines = ['id,name,email,latitude,longitude,city,lastSeen'];
@@ -162,6 +161,7 @@ function writeEmployees(employees) {
       lines.push(line);
     });
 
+    console.log("📝 Trying to write to:", EMPLOYEES_CSV);
     fs.writeFileSync(EMPLOYEES_CSV, lines.join('\n') + '\n');
     console.log(`✅ Wrote ${employees.length} employees to CSV`);
     return true;
@@ -170,6 +170,16 @@ function writeEmployees(employees) {
     return false;
   }
 }
+
+app.get('/debug-paths', (req, res) => {
+  res.json({
+    dataDirExists: fs.existsSync(DATA_DIR),
+    employeesCsvExists: fs.existsSync(EMPLOYEES_CSV),
+    dataDir: DATA_DIR,
+    employeesCsv: EMPLOYEES_CSV
+  });
+});
+
 
 // Health check
 app.get('/health', (req, res) => {
@@ -353,4 +363,5 @@ app.listen(PORT, () => {
   console.log(`📄 employees.csv: ${fs.existsSync(EMPLOYEES_CSV) ? 'OK' : 'MISSING!'}`);
   console.log(`🔑 password.txt: ${fs.existsSync(PASSWORD_FILE) ? 'OK' : 'MISSING!'}`);
 });
+
 
