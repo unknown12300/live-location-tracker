@@ -1,4 +1,4 @@
-// server.js - Employee Location Tracker (Render-ready)
+// server.js - Employee Location Tracker (Render-Ready)
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -13,11 +13,10 @@ const DATA_DIR = process.env.DATA_DIR || '/var/data';
 const EMPLOYEES_CSV = path.join(DATA_DIR, 'employees.csv');
 const PASSWORD_FILE = path.join(DATA_DIR, 'password.txt');
 
-// Ensure data directory exists
-// Only create the directory if it's NOT /var/data (i.e., during local dev)
+// 🔴 DO NOT try to create /var/data — it's pre-mounted by Render
+// If it's /var/data, assume it exists. Only create local dir if dev.
 if (DATA_DIR === '/var/data') {
-  console.log('📁 Using Render persistent disk: /var/data');
-  // Do NOT try to create /var/data — Render handles this
+  console.log('📁 Using persistent disk at /var/data (Render)');
 } else {
   // Local development: create ./data if needed
   if (!fs.existsSync(DATA_DIR)) {
@@ -25,7 +24,7 @@ if (DATA_DIR === '/var/data') {
       fs.mkdirSync(DATA_DIR, { recursive: true });
       console.log(`📁 Created local data directory: ${DATA_DIR}`);
     } catch (err) {
-      console.error(`🔴 Failed to create local data directory:`, err);
+      console.error('🔴 Failed to create local data directory:', err);
       process.exit(1);
     }
   }
@@ -41,13 +40,13 @@ if (!fs.existsSync(EMPLOYEES_CSV)) {
   }
 }
 
-// Trust proxy (important for HTTPS behind Render)
-app.set('trust proxy', 1);
-
 // Middleware
 app.use(express.static('public'));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// Trust proxy (for HTTPS detection on Render)
+app.set('trust proxy', 1);
 
 // Session setup
 const isProduction = process.env.NODE_ENV === 'production';
@@ -56,8 +55,8 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    secure: isProduction,        // HTTPS only in production
+    maxAge: 24 * 60 * 60 * 1000,
+    secure: isProduction,        // Only send over HTTPS in production
     httpOnly: true,
     sameSite: 'lax'
   }
@@ -65,7 +64,7 @@ app.use(session({
 
 // Rate limiting
 const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 100,
   standardHeaders: true,
   legacyHeaders: false,
@@ -132,7 +131,7 @@ async function getCityFromCoordinates(lat, lng) {
   }
 }
 
-// Read employees from CSV (handles Windows/Unix line endings)
+// Read employees from CSV (robust line ending support)
 function readEmployees() {
   try {
     if (!fs.existsSync(EMPLOYEES_CSV)) return [];
@@ -141,7 +140,7 @@ function readEmployees() {
 
     return data
       .trim()
-      .split(/\r?\n/) // ✅ Handles all line endings
+      .split(/\r?\n/) // ✅ Handles \n, \r\n, \r
       .slice(1)
       .map(line => {
         if (!line.trim()) return null;
@@ -170,7 +169,7 @@ function readEmployees() {
 // Write employees to CSV
 function writeEmployees(employees) {
   try {
-    const lines = ['id,name,email,latitude,longitude,city,lastSeen\n'];
+    const lines = ['id,name,email,latitude,longitude,city,lastSeen'];
     employees.forEach(emp => {
       const line = [
         emp.id,
@@ -195,14 +194,12 @@ function writeEmployees(employees) {
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'OK', uptime: process.uptime(), timestamp: new Date().toISOString() });
+  res.json({ status: 'OK', uptime: process.uptime() });
 });
 
 // Login page
 app.get('/', (req, res) => {
-  if (req.session?.loggedIn) {
-    return res.redirect('/manager');
-  }
+  if (req.session?.loggedIn) return res.redirect('/manager');
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
@@ -216,7 +213,7 @@ app.post('/login', loginLimiter, (req, res) => {
 
   try {
     if (!fs.existsSync(PASSWORD_FILE)) {
-      console.error("🔴 password.txt is missing! Create it via Render Secret File.");
+      console.error("🔴 password.txt missing! Create via Render Secret File.");
       return res.status(500).send("Server not configured");
     }
 
@@ -224,7 +221,7 @@ app.post('/login', loginLimiter, (req, res) => {
     const [user, pass] = auth.split(':').map(s => s.trim());
 
     if (!user || !pass) {
-      console.error("🔴 Invalid password.txt format. Expected: username:password");
+      console.error("🔴 Invalid password.txt format. Expected: user:pass");
       return res.status(500).send("Server config error");
     }
 
@@ -252,9 +249,7 @@ app.get('/logout', (req, res) => {
 
 // Protected manager dashboard
 app.get('/manager', (req, res) => {
-  if (!req.session?.loggedIn) {
-    return res.redirect('/');
-  }
+  if (!req.session?.loggedIn) return res.redirect('/');
   res.sendFile(path.join(__dirname, 'public', 'manager.html'));
 });
 
@@ -286,8 +281,7 @@ app.post('/create-employee', (req, res) => {
     console.log(`✅ Created employee: ${id}`);
     res.json({ success: true });
   } else {
-    console.error("🔴 Failed to save employee:", id);
-    res.status(500).json({ success: false, message: 'Failed to save employee. Check disk permissions.' });
+    res.status(500).json({ success: false, message: 'Failed to save employee. Disk error?' });
   }
 });
 
@@ -303,7 +297,7 @@ app.post('/update-location', async (req, res) => {
   const { id, latitude, longitude } = req.body;
 
   if (!id || latitude == null || longitude == null) {
-    return res.status(400).json({ success: false, message: 'Missing required data' });
+    return res.status(400).json({ success: false, message: 'Missing data' });
   }
 
   const lat = parseFloat(latitude);
@@ -342,12 +336,11 @@ app.post('/update-location', async (req, res) => {
     console.log(`📍 Updated location for ${id}: ${lat}, ${lng} → ${city}`);
     res.json({ success: true, city });
   } else {
-    console.error(`🔴 Failed to update location for ${id}`);
-    res.status(500).json({ success: false, message: 'Server failed to record location. Disk error?' });
+    res.status(500).json({ success: false, message: 'Failed to update location' });
   }
 });
 
-// Stop sharing location
+// Stop sharing
 app.post('/stop-sharing', (req, res) => {
   const { id } = req.body;
   if (!id) return res.status(400).json({ success: false, message: 'ID required' });
@@ -366,7 +359,7 @@ app.post('/stop-sharing', (req, res) => {
     console.log(`🛑 Cleared location for ${id}`);
     res.json({ success: true });
   } else {
-    res.status(500).json({ success: false, message: 'Failed to save update' });
+    res.status(500).json({ success: false, message: 'Write failed' });
   }
 });
 
@@ -385,12 +378,10 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`📄 employees.csv: ${fs.existsSync(EMPLOYEES_CSV) ? 'OK' : 'MISSING!'}`);
   console.log(`🔑 password.txt: ${fs.existsSync(PASSWORD_FILE) ? 'OK' : 'MISSING!'}`);
 
-  // 🔒 HTTPS Warning
   if (isProduction) {
-    console.warn('\n💡 Make sure you are accessing your app via HTTPS:');
+    console.warn('\n💡 Access your app via HTTPS:');
     console.warn('👉 https://yourapp.onrender.com');
-    console.warn('🚨 Geolocation will NOT work on HTTP!');
-    console.warn('🔐 Ensure SESSION_SECRET is set in environment\n');
+    console.warn('🚨 Geolocation requires HTTPS!');
+    console.warn('🔐 Ensure SESSION_SECRET is set!\n');
   }
 });
-
