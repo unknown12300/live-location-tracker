@@ -335,6 +335,7 @@ app.get('/employee-exists/:id', (req, res) => {
   res.json({ exists });
 });
 
+
 // Start server
 app.listen(PORT, () => {
   console.log(`✅ Server running at http://localhost:${PORT}`);
