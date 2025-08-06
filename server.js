@@ -8,29 +8,19 @@ const rateLimit = require('express-rate-limit');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// --- Paths: Use PERSISTENT disk on Render --- 
-const DATA_DIR = process.env.DATA_DIR || '/var/data'; // default path for persistent disk
+// --- Paths: Use 'data' folder in project root ---
+const DATA_DIR = path.join(__dirname, 'data');
 const EMPLOYEES_CSV = path.join(DATA_DIR, 'employees.csv');
 const PASSWORD_FILE = path.join(DATA_DIR, 'password.txt');
 
-// Ensure data directory exists (if not pre-mounted)
+// Ensure data directory exists
 if (!fs.existsSync(DATA_DIR)) {
-  try {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-    console.log(`📁 Created data directory: ${DATA_DIR}`);
-  } catch (err) {
-    console.error(`🔴 Failed to create data directory ${DATA_DIR}:`, err);
-  }
+  fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
-// Create employees.csv if it doesn't exist
+// Create empty CSV if not exists
 if (!fs.existsSync(EMPLOYEES_CSV)) {
-  try {
-    fs.writeFileSync(EMPLOYEES_CSV, 'id,name,email,latitude,longitude,city,lastSeen\n');
-    console.log('📄 Created employees.csv file.');
-  } catch (err) {
-    console.error('🔴 Failed to create employees.csv:', err);
-  }
+  fs.writeFileSync(EMPLOYEES_CSV, 'id,name,email,latitude,longitude,city,lastSeen\n');
 }
 
 // Middleware
@@ -145,6 +135,7 @@ function readEmployees() {
   }
 }
 
+// Write employees to CSV
 function writeEmployees(employees) {
   try {
     const lines = ['id,name,email,latitude,longitude,city,lastSeen'];
@@ -161,7 +152,6 @@ function writeEmployees(employees) {
       lines.push(line);
     });
 
-    console.log("📝 Trying to write to:", EMPLOYEES_CSV);
     fs.writeFileSync(EMPLOYEES_CSV, lines.join('\n') + '\n');
     console.log(`✅ Wrote ${employees.length} employees to CSV`);
     return true;
@@ -170,16 +160,6 @@ function writeEmployees(employees) {
     return false;
   }
 }
-
-app.get('/debug-paths', (req, res) => {
-  res.json({
-    dataDirExists: fs.existsSync(DATA_DIR),
-    employeesCsvExists: fs.existsSync(EMPLOYEES_CSV),
-    dataDir: DATA_DIR,
-    employeesCsv: EMPLOYEES_CSV
-  });
-});
-
 
 // Health check
 app.get('/health', (req, res) => {
@@ -363,5 +343,3 @@ app.listen(PORT, () => {
   console.log(`📄 employees.csv: ${fs.existsSync(EMPLOYEES_CSV) ? 'OK' : 'MISSING!'}`);
   console.log(`🔑 password.txt: ${fs.existsSync(PASSWORD_FILE) ? 'OK' : 'MISSING!'}`);
 });
-
-
