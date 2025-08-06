@@ -6,7 +6,7 @@
   <link rel="icon" type="image/png" href="https://shridevimedical.org/wp-content/uploads/2024/07/Shridevi_Medical-Logo.png" />
   <title>Manager Dashboard</title>
   <link rel="stylesheet" href="style.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" /> <!-- Fix: Remove trailing space -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     #map {
       height: 500px;
@@ -65,7 +65,6 @@
     min-height: 100vh;
     position: relative;
   }
-  
   body::before {
     content: '';
     position: fixed;
@@ -80,7 +79,6 @@
     pointer-events: none;
     z-index: -1;
   }
-  
   .container {
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
@@ -95,11 +93,14 @@
     <!-- Optional Logout Link -->
     <a href="/logout" class="logout-link">Logout</a>
 
+    <!-- REMOVED: Create Employee Section -->
+    <!--
     <h3>Create Employee</h3>
     <input type="text" id="empId" placeholder="Employee ID" required>
     <input type="text" id="empName" placeholder="Name" required>
     <input type="email" id="empEmail" placeholder="Email" required>
     <button onclick="createEmployee()">Create</button>
+    -->
 
     <div id="map"></div>
 
@@ -116,21 +117,20 @@
     </div>
   </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script> <!-- Fix: Remove trailing space -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     // Initialize Map
     const map = L.map('map').setView([15.3, 76.0], 6);
 
-    // Tile Layers (Fix: Remove trailing spaces from URLs and attribution links)
+    // Tile Layers
     const roadMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>', // Fix: Remove spaces
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
       maxZoom: 19,
       subdomains: 'abcd'
     });
 
-    // Fix: Correct the satellite tile URL (remove trailing spaces)
     const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      attribution: '&copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, FAO, NOAA, USGS, © OpenStreetMap contributors', // Fix: Ensure no trailing space in URL part
+      attribution: '&copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, FAO, NOAA, USGS, © OpenStreetMap contributors',
       maxZoom: 19
     });
 
@@ -189,12 +189,9 @@
     function updateMarker(emp) {
       const lat = parseFloat(emp.latitude);
       const lng = parseFloat(emp.longitude);
-      // Add basic validation
       if (!lat || !lng || isNaN(lat) || isNaN(lng)) return;
-
       const pos = [lat, lng];
       const color = getColorById(emp.id);
-
       if (markers[emp.id]) {
         markers[emp.id].setLatLng(pos);
         markers[emp.id].setPopupContent(
@@ -209,11 +206,6 @@
         );
         markers[emp.id] = marker;
       }
-
-      // Optional: Auto-zoom commented out to prevent map jumping on refresh/update
-      // if (!map.getBounds().contains(pos) || map.getZoom() < 13) {
-      //   map.setView(pos, 14);
-      // }
     }
 
     // Remove marker if employee goes offline
@@ -224,67 +216,29 @@
       }
     }
 
-    // Create new employee
+    // --- REMOVED: createEmployee function ---
+    /*
     function createEmployee() {
-      const id = document.getElementById('empId').value.trim();
-      const name = document.getElementById('empName').value.trim();
-      const email = document.getElementById('empEmail').value.trim();
-
-      if (!id || !name || !email) {
-        alert("All fields are required");
-        return;
-      }
-
-      fetch('/create-employee', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `id=${encodeURIComponent(id)}&name=${encodeURIComponent(name)}&email=${encodeURIComponent(email)}`
-      })
-      .then(res => {
-         if (!res.ok) { // Handle HTTP errors
-             throw new Error(`HTTP error! status: ${res.status}`);
-         }
-         return res.json();
-      })
-      .then(data => {
-        if (data.success) {
-          alert(`✅ Employee ${id} created!`);
-          document.getElementById('empId').value = '';
-          document.getElementById('empName').value = '';
-          document.getElementById('empEmail').value = '';
-          // Optional: Refresh the list immediately after creation
-          loadEmployees();
-        } else {
-          alert("Error: " + data.message);
-        }
-      })
-      .catch(err => {
-         console.error("Create error:", err);
-         alert("Failed to create employee. Check console for details.");
-      });
+      // ... (code to create employee) ...
     }
+    */
 
     // Load and display only active employees
     function loadEmployees() {
       fetch('/employees')
         .then(res => {
-           if (!res.ok) { // Handle HTTP errors
-             throw new Error(`HTTP error! status: ${res.status}`);
-           }
+           if (!res.ok) { throw new Error(`HTTP error! status: ${res.status}`); }
            return res.json();
         })
         .then(employees => {
           const listEl = document.getElementById('location-list');
           listEl.innerHTML = '';
-
-          // Filter only active (sharing location) - Add basic validation
           const active = employees.filter(emp =>
               emp.latitude &&
               emp.longitude &&
               !isNaN(parseFloat(emp.latitude)) &&
               !isNaN(parseFloat(emp.longitude))
           );
-
           if (active.length === 0) {
             listEl.innerHTML = '<p>No employees currently sharing location.</p>';
           } else {
@@ -292,17 +246,13 @@
                 const item = document.createElement('div');
                 item.style.padding = "8px";
                 item.style.borderBottom = "1px solid #eee";
-
-                // Format lastSeen time, handle if missing
                 let timeString = 'Unknown';
                 if (emp.lastSeen) {
                     const lastSeenDate = new Date(emp.lastSeen);
-                    // Check if the date is valid
                     if (!isNaN(lastSeenDate.getTime())) {
                         timeString = lastSeenDate.toLocaleTimeString();
                     }
                 }
-
                 item.innerHTML = `
                   <span class="status-online">🟢</span>
                   <b>${emp.name}</b> (${emp.id}) |
@@ -310,13 +260,10 @@
                   🏙️ <span style="color:#004d99">${emp.city || 'Unknown'}</span> |
                   🕒 ${timeString}
                 `;
-
                 listEl.appendChild(item);
-                updateMarker(emp); // Update map
+                updateMarker(emp);
               });
           }
-
-          // Remove markers for employees no longer active
           Object.keys(markers).forEach(id => {
             if (!active.some(emp => emp.id === id)) {
               removeMarker(id);
@@ -325,13 +272,12 @@
         })
         .catch(err => {
           console.error("Fetch error:", err);
-          // Provide more user-friendly error message
-          document.getElementById('location-list').innerHTML = '<p>❌ Failed to load employee data. Please check your connection and try refreshing the page.</p>';
+          document.getElementById('location-list').innerHTML = '<p>❌ Failed to load employee data.</p>';
         });
     }
 
     // Auto-refresh every 10 seconds
-    setInterval(loadEmployees, 10000);
+    setInterval(loadEmployees, 5000);
     // First load
     loadEmployees();
 
