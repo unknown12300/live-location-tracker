@@ -4,7 +4,6 @@ const fs = require('fs');
 const path = require('path');
 const session = require('express-session');
 const rateLimit = require('express-rate-limit');
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -253,37 +252,9 @@ app.get('/manager', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'manager.html'));
 });
 
-// Create employee
-app.post('/create-employee', (req, res) => {
-  const { id, name, email } = req.body;
-
-  if (!id || !name || !email) {
-    return res.json({ success: false, message: 'All fields are required' });
-  }
-
-  const employees = readEmployees();
-  if (employees.some(emp => emp.id === id)) {
-    return res.json({ success: false, message: 'ID already exists' });
-  }
-
-  const newEmp = {
-    id: id.trim(),
-    name: name.trim(),
-    email: email.trim(),
-    latitude: '',
-    longitude: '',
-    city: 'Unknown',
-    lastSeen: ''
-  };
-
-  const success = writeEmployees([...employees, newEmp]);
-  if (success) {
-    console.log(`✅ Created employee: ${id}`);
-    res.json({ success: true });
-  } else {
-    res.status(500).json({ success: false, message: 'Failed to save employee. Disk error?' });
-  }
-});
+// --- REMOVED: Create employee route ---
+// app.post('/create-employee', (req, res) => { ... });
+// This route is no longer needed since employees are pre-loaded from CSV.
 
 // Get all employees
 app.get('/employees', (req, res) => {
@@ -311,12 +282,21 @@ app.post('/update-location', async (req, res) => {
     return res.status(400).json({ success: false, message: 'Coordinates out of range' });
   }
 
-  const city = await getCityFromCoordinates(lat, lng);
+  // Check if the ID exists in the pre-loaded list
   const employees = readEmployees();
-  const existing = employees.find(emp => emp.id === id);
+  const existingEmployee = employees.find(emp => emp.id === id);
 
-  const name = existing?.name || "Unknown";
-  const email = existing?.email || "unknown@company.com";
+  // If the ID is not found in the CSV, reject the update
+  if (!existingEmployee) {
+    console.log(`❌ Update failed: ID ${id} not found in employees.csv`);
+    return res.status(404).json({ success: false, message: 'Employee ID not found. Please contact manager.' });
+  }
+
+  const city = await getCityFromCoordinates(lat, lng);
+
+  // Update the existing employee's data
+  const name = existingEmployee.name;
+  const email = existingEmployee.email;
 
   const updated = {
     id,
@@ -328,6 +308,7 @@ app.post('/update-location', async (req, res) => {
     lastSeen: new Date().toISOString()
   };
 
+  // Filter out the old record and add the updated one
   const filtered = employees.filter(emp => emp.id !== id);
   const all = [...filtered, updated];
   const success = writeEmployees(all);
@@ -355,6 +336,7 @@ app.post('/stop-sharing', (req, res) => {
   emp.lastSeen = '';
 
   const success = writeEmployees(employees);
+
   if (success) {
     console.log(`🛑 Cleared location for ${id}`);
     res.json({ success: true });
@@ -377,7 +359,6 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`📁 Data directory: ${DATA_DIR}`);
   console.log(`📄 employees.csv: ${fs.existsSync(EMPLOYEES_CSV) ? 'OK' : 'MISSING!'}`);
   console.log(`🔑 password.txt: ${fs.existsSync(PASSWORD_FILE) ? 'OK' : 'MISSING!'}`);
-
   if (isProduction) {
     console.warn('\n💡 Access your app via HTTPS:');
     console.warn('👉 https://yourapp.onrender.com');
