@@ -15,7 +15,6 @@
       align-items: center;
       justify-content: center;
     }
-
     .container {
       max-width: 400px;
       width: 90%;
@@ -26,13 +25,11 @@
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
       text-align: center;
     }
-
     .logo {
       max-width: 120px;
       margin: 0 auto 10px;
       display: block;
     }
-
     input {
       padding: 12px;
       width: 100%;
@@ -42,7 +39,6 @@
       font-size: 16px;
       box-sizing: border-box;
     }
-
     .btn {
       padding: 12px 20px;
       margin: 8px 5px;
@@ -52,45 +48,28 @@
       font-size: 15px;
       font-weight: bold;
     }
-
     .btn-start {
       background: #28a745;
       color: white;
     }
-
     .btn-stop {
       background: #d9534f;
       color: white;
     }
-
     .btn:disabled {
       background: #ccc;
       cursor: not-allowed;
     }
-
     #status {
       margin-top: 15px;
       font-size: 14px;
       font-weight: 500;
       min-height: 20px;
     }
-
+    /* Hide the info-box */
     .info-box {
-      margin-top: 15px;
-      padding: 12px;
-      background: #f8f9fa;
-      border: 1px solid #ddd;
-      border-radius: 5px;
-      font-size: 14px;
-      color: #333;
-      text-align: left;
+      display: none !important; /* This line hides the entire info box */
     }
-
-    .info-box b {
-      display: inline-block;
-      width: 90px;
-    }
-
     /* Spinner for loading state */
     .spinner {
        border: 2px solid #f3f3f3;
@@ -103,12 +82,10 @@
        vertical-align: middle;
        margin-right: 5px;
     }
-
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
-
     @media (max-width: 480px) {
       .container {
         padding: 15px;
@@ -125,14 +102,11 @@
     <img src="https://shridevimedical.org/wp-content/uploads/2024/07/Shridevi_Medical-Logo.png" alt="Shridevi Logo" class="logo" />
     <h2>📍 Share Your Location</h2>
     <p>Enter your Employee ID to start sharing.</p>
-
     <input type="text" id="employeeId" placeholder="Enter Employee ID" required />
-
     <button id="startBtn" class="btn btn-start" onclick="startSharing()">🟢 Start Sharing</button>
     <button id="stopBtn" class="btn btn-stop" onclick="stopSharing()" disabled>🔴 Stop Sharing</button>
-
     <p id="status">Status: Ready</p>
-
+    <!-- The info-box is still in the HTML but hidden by CSS -->
     <div class="info-box" id="locationInfo" style="display:none;">
       <b>ID:</b> <span id="eid"></span><br/>
       <b>Location:</b> <span id="coords">Waiting...</span><br/>
@@ -140,7 +114,6 @@
       <b>Updated:</b> <span id="time">-</span>
     </div>
   </div>
-
   <script>
     let watchId = null;
     let isSharing = false;
@@ -153,20 +126,17 @@
         localStorage.setItem(EMPLOYEE_ID_KEY, document.getElementById('employeeId').value.trim());
         localStorage.setItem(IS_SHARING_KEY, isSharing.toString());
     }
-
     function loadState() {
         const savedId = localStorage.getItem(EMPLOYEE_ID_KEY);
         const wasSharing = localStorage.getItem(IS_SHARING_KEY) === 'true';
         const lastLocationData = JSON.parse(localStorage.getItem(LAST_LOCATION_KEY) || '{}');
         return { savedId, wasSharing, lastLocationData };
     }
-
     function clearState() {
         localStorage.removeItem(EMPLOYEE_ID_KEY);
         localStorage.removeItem(IS_SHARING_KEY);
         localStorage.removeItem(LAST_LOCATION_KEY); // Clear last location on stop
     }
-
     function saveLastLocation(id, lat, lng, city) {
         const locationData = {
             id,
@@ -184,12 +154,16 @@
       document.getElementById('status').innerHTML = spinnerHtml + text;
     }
 
+    // Function to update info is no longer needed
+    // It's kept for potential future use or if you change your mind
     function updateInfo(id, lat, lng, city) {
-      document.getElementById('eid').textContent = id;
-      document.getElementById('coords').textContent = `${parseFloat(lat).toFixed(6)}, ${parseFloat(lng).toFixed(6)}`;
-      document.getElementById('city').textContent = city || "Fetching...";
-      document.getElementById('time').textContent = new Date().toLocaleTimeString();
-      document.getElementById('locationInfo').style.display = 'block';
+      // This function is intentionally left blank.
+      // The info-box is hidden by CSS.
+      // document.getElementById('eid').textContent = id;
+      // document.getElementById('coords').textContent = `${parseFloat(lat).toFixed(6)}, ${parseFloat(lng).toFixed(6)}`;
+      // document.getElementById('city').textContent = city || "Fetching...";
+      // document.getElementById('time').textContent = new Date().toLocaleTimeString();
+      // document.getElementById('locationInfo').style.display = 'block';
     }
 
     // --- Geocoding ---
@@ -230,9 +204,9 @@
       // Save to localStorage immediately
       getCityName(lat, lng, (city) => {
           saveLastLocation(id, lat, lng, city);
-          // Update UI with the fetched city
-          updateInfo(id, lat, lng, city);
+          // Update status with city, but do not update the info-box
           updateStatus(`🟢 Sharing location: ${city}`);
+          // updateInfo(id, lat, lng, city); // Commented out to hide details
       });
 
       fetch('/update-location', {
@@ -240,9 +214,6 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: id,
-          // Note: Name/Email are typically retrieved by the server from its records
-          // based on the ID. Sending them from client is less common.
-          // If needed, they would need to be stored locally too.
           latitude: lat,
           longitude: lng
         })
@@ -268,7 +239,6 @@
     // --- Core Sharing Logic ---
     async function startSharing() {
       const id = document.getElementById('employeeId').value.trim();
-
       if (!id) {
         alert("⚠️ Please enter your Employee ID");
         return;
@@ -276,7 +246,6 @@
 
       // Save ID immediately
       localStorage.setItem(EMPLOYEE_ID_KEY, id);
-
       updateStatus("🔍 Verifying your ID...", true);
       let exists = false;
       try {
@@ -321,13 +290,11 @@
         (err) => {
           console.error("Geolocation error:", err);
           updateStatus(`❌ Geolocation Error: ${err.message} (${err.code})`);
-          // Don't automatically stop sharing on a single error, let user decide
-          // stopSharing();
         },
         {
           enableHighAccuracy: true,
-          timeout: 15000, // Increased timeout slightly
-          maximumAge: 5000  // Allow slightly stale cache
+          timeout: 15000,
+          maximumAge: 5000
         }
       );
     }
@@ -345,7 +312,7 @@
       document.getElementById('startBtn').disabled = false;
       document.getElementById('stopBtn').disabled = true;
       updateStatus("🛑 Location sharing stopped.");
-      document.getElementById('locationInfo').style.display = 'none';
+      // The info-box remains hidden
 
       // Notify server
       notifyStopSharing(id);
@@ -354,31 +321,13 @@
     // --- Page Load Logic ---
     window.addEventListener('DOMContentLoaded', () => {
         const { savedId, wasSharing, lastLocationData } = loadState();
-
         if (savedId) {
             document.getElementById('employeeId').value = savedId;
         }
 
-        // If was sharing, restore last known info and resume
+        // If was sharing, attempt to resume
         if (wasSharing && savedId) {
-            // Restore last known location info if available
-            if (lastLocationData.id === savedId && lastLocationData.lat && lastLocationData.lng) {
-                 updateInfo(
-                     lastLocationData.id,
-                     lastLocationData.lat,
-                     lastLocationData.lng,
-                     lastLocationData.city
-                 );
-                 // Format timestamp for display
-                 const displayTime = lastLocationData.timestamp ?
-                     new Date(lastLocationData.timestamp).toLocaleTimeString() : '-';
-                 document.getElementById('time').textContent = displayTime;
-                 updateStatus(`🔁 Resumed. Last update: ${displayTime}`);
-                 document.getElementById('locationInfo').style.display = 'block';
-            } else {
-                 updateStatus("🔁 Resuming sharing...");
-            }
-            // Attempt to start sharing after a short delay to allow UI to load
+            updateStatus("🔁 Resuming sharing...");
             setTimeout(() => {
                  startSharing().catch(err => {
                      console.error("Error auto-starting sharing:", err);
@@ -390,42 +339,28 @@
 
     // --- Cleanup on Tab Close ---
     window.addEventListener('beforeunload', (e) => {
-      // Save state one last time
       saveState();
-      // If sharing, try to notify the server using sendBeacon (more reliable on unload)
       if (isSharing) {
         const id = document.getElementById('employeeId').value.trim();
         if (id) {
-          // Get last known lat/lng if available for the beacon
           const lastLoc = JSON.parse(localStorage.getItem(LAST_LOCATION_KEY) || '{}');
           const beaconData = {
             id: id,
             latitude: lastLoc.lat || null,
             longitude: lastLoc.lng || null
-            // Add other relevant fields if needed by /stop-sharing
           };
           const blob = new Blob([JSON.stringify(beaconData)], { type: 'application/json' });
-          // Use sendBeacon for best effort delivery on unload
           if (navigator.sendBeacon) {
              navigator.sendBeacon('/stop-sharing', blob);
-          } else {
-             // Fallback if sendBeacon is not supported (unlikely)
-             // A synchronous XHR was previously used, but is deprecated.
-             // The fetch API is async and might not complete.
-             // sendBeacon is the recommended approach.
-             console.warn("sendBeacon not supported, stop-sharing might not be sent.");
           }
         }
       }
-      // For the beforeunload dialog, modern browsers often ignore custom messages
-      // but setting returnValue triggers the default dialog.
       if (isSharing) {
          e.preventDefault();
-         e.returnValue = ''; // Triggers default browser confirmation dialog
-         return ''; // Fallback
+         e.returnValue = '';
+         return '';
       }
     });
-
   </script>
 </body>
 </html>
