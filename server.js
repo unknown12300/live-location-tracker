@@ -8,19 +8,29 @@ const rateLimit = require('express-rate-limit');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// --- Paths: Use 'data' folder in project root ---
-const DATA_DIR = path.join(__dirname, 'data');
+// --- Paths: Use PERSISTENT disk on Render --- 
+const DATA_DIR = process.env.DATA_DIR || '/var/data'; // default path for persistent disk
 const EMPLOYEES_CSV = path.join(DATA_DIR, 'employees.csv');
 const PASSWORD_FILE = path.join(DATA_DIR, 'password.txt');
 
-// Ensure data directory exists
+// Ensure data directory exists (if not pre-mounted)
 if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    console.log(`📁 Created data directory: ${DATA_DIR}`);
+  } catch (err) {
+    console.error(`🔴 Failed to create data directory ${DATA_DIR}:`, err);
+  }
 }
 
-// Create empty CSV if not exists
+// Create employees.csv if it doesn't exist
 if (!fs.existsSync(EMPLOYEES_CSV)) {
-  fs.writeFileSync(EMPLOYEES_CSV, 'id,name,email,latitude,longitude,city,lastSeen\n');
+  try {
+    fs.writeFileSync(EMPLOYEES_CSV, 'id,name,email,latitude,longitude,city,lastSeen\n');
+    console.log('📄 Created employees.csv file.');
+  } catch (err) {
+    console.error('🔴 Failed to create employees.csv:', err);
+  }
 }
 
 // Middleware
@@ -343,3 +353,4 @@ app.listen(PORT, () => {
   console.log(`📄 employees.csv: ${fs.existsSync(EMPLOYEES_CSV) ? 'OK' : 'MISSING!'}`);
   console.log(`🔑 password.txt: ${fs.existsSync(PASSWORD_FILE) ? 'OK' : 'MISSING!'}`);
 });
+
