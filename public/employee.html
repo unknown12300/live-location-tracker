@@ -388,45 +388,6 @@
         }
     });
 
-    if (navigator.geolocation) {
-  navigator.geolocation.watchPosition(
-    (position) => {
-      const { latitude, longitude } = position.coords;
-      // Send to server
-      fetch('/update-location', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, latitude, longitude })
-      });
-    },
-    (error) => {
-      let message = '';
-      switch (error.code) {
-        case error.PERMISSION_DENIED:
-          message = 'Please allow location access to start sharing.';
-          break;
-        case error.POSITION_UNAVAILABLE:
-          message = 'Location unavailable. Try again.';
-          break;
-        case error.TIMEOUT:
-          message = 'Location request timed out.';
-          break;
-        default:
-          message = 'Unknown error getting location.';
-      }
-      console.error('Geolocation error:', message);
-      alert(message); // or show in UI
-    },
-    {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 0
-    }
-  );
-} else {
-  alert("Geolocation is not supported by your browser.");
-}
-
     // --- Cleanup on Tab Close ---
     window.addEventListener('beforeunload', (e) => {
       // Save state one last time
@@ -468,4 +429,3 @@
   </script>
 </body>
 </html>
-
